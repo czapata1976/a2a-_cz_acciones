@@ -68,6 +68,7 @@ class Estado(TypedDict, total=False):
     agente: str
     endpoint: str
     respuesta: str
+    respuesta_agente: str
     motivo: str
 
 
@@ -79,6 +80,8 @@ class Resultado:
     agente: str | None = None
     motivo: str = "ok"
     saltos: list[dict] = field(default_factory=list)
+    respuesta_agente: str = ""
+    """Texto exacto que devolvió el agente, antes de citarlo (para comprobar que no se alteró)."""
 
 
 def _plano(texto: str) -> str:
@@ -91,6 +94,24 @@ def _plano(texto: str) -> str:
 def es_intento_de_inyeccion(texto: str) -> bool:
     plano = _plano(texto)
     return any(frase in plano for frase in FRASES_INYECCION)
+
+
+CONECTORES_SEGUIMIENTO = (
+    "y ", "¿y", "y si", "entonces", "ahora", "el mismo", "la misma", "lo mismo", "eso", "ese",
+    "esa", "también", "tambien", "igual", "además", "ademas", "otro horizonte", "ese caso",
+)
+
+
+def es_seguimiento(texto: str) -> bool:
+    """True si la pregunta solo se entiende con el turno anterior («¿y a 3 meses?»).
+
+    El historial se usa **solo** en ese caso: si se usara siempre, una consulta de otro tema heredaría
+    el asunto de la pregunta previa y acabaría en el agente equivocado.
+    """
+    plano = _plano(texto)
+    if any(plano.startswith(conector) for conector in CONECTORES_SEGUIMIENTO):
+        return True
+    return len(normalizar(texto)) <= 3
 
 
 def _lista_agentes(fichas: list[Ficha]) -> str:
@@ -120,18 +141,20 @@ class Supervisor:
         inicio = time.perf_counter()
         consulta = estado.get("consulta", "")
         historial = list(estado.get("historial") or [])[-3:]
-        texto_eleccion = " ".join([*historial, consulta]).strip()
+        texto_eleccion = " ".join([*historial, consulta]) if es_seguimiento(consulta) else consulta
 
         if not normalizar(consulta):
             return {
                 "motivo": "saludo",
                 "respuesta": SALUDO.format(agentes=_lista_agentes(self.fichas)),
+                "respuesta_agente": "",
                 "saltos": [_paso("elegir", "saludo: presento el equipo", inicio)],
             }
         if es_intento_de_inyeccion(consulta):
             return {
                 "motivo": "inyeccion",
                 "respuesta": INYECCION.format(agentes=_lista_agentes(self.fichas)),
+                "respuesta_agente": "",
                 "saltos": [_paso("elegir", "intento de cambiar instrucciones: no obedezco", inicio)],
             }
 
@@ -141,12 +164,14 @@ class Supervisor:
             return {
                 "motivo": "ninguno",
                 "respuesta": SIN_AGENTE.format(agentes=_lista_agentes(self.fichas)),
+                "respuesta_agente": "",
                 "saltos": [_paso("elegir", f"ningún agente alcanza ({resumen})", inicio)],
             }
         return {
             "motivo": "elegido",
             "agente": ficha.nombre or ficha.url,
             "endpoint": ficha.endpoint,
+            "respuesta_agente": "",
             "saltos": [_paso("elegir", f"elijo {ficha.nombre} ({resumen})", inicio)],
         }
 
@@ -176,7 +201,7 @@ class Supervisor:
             }
         return {
             "motivo": "ok",
-            "respuesta": texto,
+            "respuesta_agente": texto,
             "saltos": [*estado.get("saltos", []),
                        _paso("consultar", f"{nombre} respondió {len(texto)} caracteres", inicio)],
         }
@@ -187,7 +212,7 @@ class Supervisor:
         saltos = list(estado.get("saltos", []))
         if motivo in {"saludo", "inyeccion", "ninguno", "caido"}:
             return {"saltos": [*saltos, _paso("componer", "respuesta del coordinador, sin agente", inicio)]}
-        texto = estado.get("respuesta", "")
+        texto = estado.get("respuesta_agente", "")
         nombre = estado.get("agente", "")
         endpoint = estado.get("endpoint", "")
         final = f"Respondió: {nombre}\n{endpoint}\n\n{texto}"
@@ -217,9 +242,11 @@ class Supervisor:
             {"configurable": {"thread_id": cliente}},
         )
         motivo = estado.get("motivo", "ok")
+        crudo = estado.get("respuesta_agente", "") if motivo == "ok" else ""
         return Resultado(
             respuesta=estado.get("respuesta", ""),
             agente=estado.get("agente") if motivo == "ok" else None,
             motivo=motivo,
             saltos=list(estado.get("saltos") or []),
+            respuesta_agente=crudo,
         )

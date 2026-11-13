@@ -194,6 +194,20 @@ def test_recuerda_dentro_de_la_conversacion(cliente: TestClient, consultar: Cons
     assert [llamada[0] for llamada in consultar.llamadas] == ["agente_acciones", "agente_acciones"]
 
 
+def test_consulta_ajena_no_hereda_el_tema_anterior(cliente: TestClient, consultar: ConsultarFalso):
+    # tras dos preguntas de acciones, una consulta de otro tema no debe ir al agente de acciones
+    preguntar(cliente, "Analiza NVDA en US para un perfil moderado.", cliente_id="c-tema")
+    preguntar(cliente, "Analiza AAPL en US para un perfil moderado.", cliente_id="c-tema")
+    datos = preguntar(cliente, "¿Cuál es el precio del arriendo de oficinas en Recoleta?", cliente_id="c-tema").json()
+    assert datos["motivo"] == "ninguno"
+
+
+def test_respuesta_agente_es_el_texto_sin_tocar(cliente: TestClient):
+    datos = preguntar(cliente, "Analiza NVDA en US para un perfil moderado.").json()
+    assert datos["respuesta_agente"] in datos["respuesta"]
+    assert datos["respuesta"].startswith("Respondió: agente_acciones")
+
+
 def test_no_mezcla_clientes(cliente: TestClient):
     preguntar(cliente, "Analiza NVDA en US para un perfil moderado.", cliente_id="cliente-a")
     datos = preguntar(cliente, "¿y a 6 meses?", cliente_id="cliente-b").json()

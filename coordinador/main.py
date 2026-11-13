@@ -90,6 +90,7 @@ def crear_app(
             "respuesta": resultado.respuesta,
             "agente": resultado.agente,
             "motivo": resultado.motivo,
+            "respuesta_agente": resultado.respuesta_agente,
             "saltos": resultado.saltos,
         }
 
