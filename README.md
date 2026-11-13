@@ -168,7 +168,8 @@ el dashboard de Heroku (*Deploy → Deployment method: GitHub*), con **auto-depl
 Un push a `main` construye las tres. No hace falta ningún secreto en GitHub: el token de Heroku ya no
 se usa porque no hay `git push` a Heroku desde Actions. El workflow
 [`.github/workflows/pruebas.yml`](.github/workflows/pruebas.yml) solo corre `pytest` (89 pruebas) y
-**no despliega**; si quieres desplegar sin cambiar código, usa *Manual deploy → Deploy Branch* en el
+**no despliega**: en GitHub quedan 81 en verde y 8 se saltan solas porque necesitan el agente en vivo o
+el Postgres. Si quieres desplegar sin cambiar código, usa *Manual deploy → Deploy Branch* en el
 dashboard de la app.
 
 > Para conectar una app nueva: *Deploy → GitHub → Connect to GitHub* → repo → rama `main` →
