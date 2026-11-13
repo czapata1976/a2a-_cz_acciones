@@ -219,6 +219,14 @@ def test_texto_de_lee_estado_e_historial():
     assert texto_de(con_historial) == "desde historial"
 
 
+def test_texto_de_no_duplica_artefacto_y_estado():
+    resultado = {
+        "status": {"state": "completed", "message": {"parts": [{"kind": "text", "text": "la respuesta"}]}},
+        "artifacts": [{"parts": [{"kind": "text", "text": "la respuesta"}]}],
+    }
+    assert texto_de(resultado) == "la respuesta"
+
+
 def test_dividir_texto_respeta_el_limite():
     texto = "\n".join(f"línea {i} " + "x" * 60 for i in range(80))
     partes = dividir_texto(texto, limite=1000)
