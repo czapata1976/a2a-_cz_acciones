@@ -31,12 +31,12 @@ function borrarToken() {
   }
 }
 
-/* Cada ejemplo muestra una capacidad distinta del agente y está probado con el agente real. */
+/* Cada ejemplo muestra una capacidad distinta: tres del agente de acciones y dos abiertas al equipo. */
 const EJEMPLOS = [
   'Analiza NVDA en US para un perfil moderado a 12 meses.',
   '¿Cuánto vale SQM-B en Chile?',
-  'Analiza AAPL en US; todavía no defino mi perfil de riesgo.',
-  '¿Qué criterios usas para evaluar una acción?',
+  '¿Qué agentes forman el equipo y qué hace cada uno?',
+  '¿Quién del equipo puede ayudarme a automatizar un proceso?',
   '¿Cuánto impuesto pago por las ganancias de NVDA en Chile?',
 ];
 

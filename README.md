@@ -321,7 +321,12 @@ sintetiza es el desplegado, apuntado con `A2A_CZZ_URL` y `A2A_CZZ_CLAVE`.
 sobreviven a los reinicios del dyno; sin esa variable caen a SQLite en `WEB_DATOS`
 (`web/.runtime/chat.db`). El Postgres del taller se comparte con otros proyectos, así que el chat crea
 sus propias tablas **con prefijo `czz_`** (`czz_equipo`, `czz_charlas`, `czz_mensajes`) y no toca
-ninguna otra.
+ninguna otra. La consola conserva **las 3 conversaciones más recientes**: al crear una nueva se borran
+las anteriores con sus mensajes (`Almacen.podar_charlas`).
+
+**Diagrama.** El botón **Arquitectura** de la barra superior abre
+[`web/static/arquitectura.svg`](web/static/arquitectura.svg): canales de consulta (chat web,
+coordinador, Telegram, WhatsApp, otros agentes), protocolo A2A, equipo local + remotos y persistencia.
 
 **El equipo es parte del trabajo, no una lista aparte.** En cada turno el chat lee la tarjeta de cada
 agente agregado y le pasa al agente local un bloque `<equipo_a2a>` con nombre, descripción y skills

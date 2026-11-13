@@ -11,15 +11,19 @@ import json
 import sqlite3
 import threading
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 PREFIJO_POSTGRES = "postgres"
 """El valor de `WEB_DATOS`/`DATABASE_URL` empieza así cuando el backend es Postgres."""
 
+MAX_CHARLAS = 3
+"""Conversaciones que se conservan: las más recientes. Las anteriores se borran con sus mensajes."""
+
 
 def _ahora() -> str:
-    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+    # Con microsegundos: el orden de las conversaciones decide cuáles se conservan.
+    return datetime.now(timezone.utc).isoformat(timespec="microseconds")
 
 
 ESQUEMA_SQLITE = """
@@ -87,9 +91,10 @@ class Almacen:
         self.ruta = str(ruta).strip()
         self._postgres = es_postgres(self.ruta)
         self._tablas = TABLAS["postgres" if self._postgres else "sqlite"]
-        self._candado = threading.Lock()
+        self._candado = threading.RLock()
         self._conexion = None
         self._pool = None
+        self._ultima_marca: datetime | None = None
         if self._postgres:
             self._abrir_postgres()
         else:
@@ -186,13 +191,47 @@ class Almacen:
         return self._escribir([("DELETE FROM {equipo} WHERE url = ?", (url,))]) > 0
 
     # --- conversaciones ---------------------------------------------------
+    def _marca_charla(self) -> str:
+        """Marca temporal estrictamente creciente.
+
+        En Windows el reloj repite el mismo valor en llamadas seguidas, y el orden decide qué
+        conversaciones se conservan: se fuerza que cada marca sea mayor que la anterior.
+        """
+        with self._candado:
+            ahora = datetime.now(timezone.utc)
+            if self._ultima_marca is None:
+                filas = self._leer("SELECT MAX(creada_en) AS ultima FROM {charlas}")
+                guardada = filas[0]["ultima"] if filas else None
+                try:
+                    self._ultima_marca = datetime.fromisoformat(guardada) if guardada else ahora
+                except (TypeError, ValueError):
+                    self._ultima_marca = ahora
+            if ahora <= self._ultima_marca:
+                ahora = self._ultima_marca + timedelta(microseconds=1)
+            self._ultima_marca = ahora
+            return ahora.isoformat(timespec="microseconds")
+
     def crear_charla(self) -> str:
         identificador = str(uuid.uuid4())
         self._escribir([(
             "INSERT INTO {charlas} (id, creada_en) VALUES (?, ?)",
-            (identificador, _ahora()),
+            (identificador, self._marca_charla()),
         )])
+        self.podar_charlas()
         return identificador
+
+    def podar_charlas(self, limite: int = MAX_CHARLAS) -> int:
+        """Borra las conversaciones más viejas y devuelve cuántas quedaron fuera."""
+        sobrantes = [
+            fila["id"]
+            for fila in self._leer("SELECT id FROM {charlas} ORDER BY creada_en DESC, id DESC")
+        ][limite:]
+        for charla_id in sobrantes:
+            self._escribir([
+                ("DELETE FROM {mensajes} WHERE charla_id = ?", (charla_id,)),
+                ("DELETE FROM {charlas} WHERE id = ?", (charla_id,)),
+            ])
+        return len(sobrantes)
 
     def existe_charla(self, charla_id: str) -> bool:
         filas = self._leer("SELECT 1 AS existe FROM {charlas} WHERE id = ?", (charla_id,))
@@ -204,7 +243,8 @@ class Almacen:
             "(SELECT COUNT(*) FROM {mensajes} m WHERE m.charla_id = c.id) AS mensajes, "
             "(SELECT texto FROM {mensajes} m WHERE m.charla_id = c.id AND m.rol = 'user' "
             " ORDER BY m.id LIMIT 1) AS titulo "
-            "FROM {charlas} c ORDER BY c.creada_en DESC"
+            "FROM {charlas} c ORDER BY c.creada_en DESC LIMIT ?",
+            (MAX_CHARLAS,),
         )
         return [dict(fila) for fila in filas]
 

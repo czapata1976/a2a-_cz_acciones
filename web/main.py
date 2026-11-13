@@ -58,6 +58,8 @@ class NuevoMensaje(BaseModel):
 def crear_app(settings: Settings | None = None, almacen: Almacen | None = None) -> FastAPI:
     settings = settings or cargar_settings()
     almacen = almacen or Almacen(settings.ruta_datos)
+    # La consola conserva las últimas MAX_CHARLAS conversaciones: limpia lo que haya sobrado.
+    almacen.podar_charlas()
     intentos = LimiteIntentos()
 
     for ruidoso in ("httpx", "httpcore"):

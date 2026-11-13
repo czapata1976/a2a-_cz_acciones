@@ -24,7 +24,7 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 | `scripts/servidor_canales.py` | Levanta la API de canales y, si está habilitado, el puente de WhatsApp. |
 | `scripts/configurar_telegram.py` · `scripts/telegram_polling.py` | Registran el webhook o escuchan por long polling. |
 | `tests/test_canales.py` | Secretos, sesión por chat y respuestas de los canales, sin salir a la red. |
-| `web/` | Chat web (FastAPI + estáticos) con login, equipo de hasta 4 agentes remotos y traza del flujo A2A. |
+| `web/` | Chat web (FastAPI + estáticos) con login, equipo de hasta 4 agentes remotos y traza del flujo A2A; `static/arquitectura.svg` es el diagrama de canales. |
 | `web/auth.py` · `web/config.py` | Clave PBKDF2, cookie HMAC firmada y configuración `WEB_*` (usuario único en `.env`). |
 | `web/a2a.py` · `web/orquestador.py` | Descubrimiento por tarjeta, `message/send` y abanico paralelo + síntesis del agente local. |
 | `web/almacen.py` | SQLite local o Postgres (`DATABASE_URL`, tablas `czz_*`): equipo, conversaciones y trazas. |

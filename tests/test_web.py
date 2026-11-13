@@ -435,6 +435,33 @@ def test_salud_informa_equipo(cliente: TestClient, sin_red):
     assert cliente.get("/ok").json()["ok"] is True
 
 
+def test_conserva_solo_las_tres_conversaciones_ultimas(cliente: TestClient, sin_red):
+    entrar(cliente)
+    creadas = [
+        cliente.post("/api/charlas", headers=CABECERAS).json()["id"] for _ in range(5)
+    ]
+    guardadas = [charla["id"] for charla in cliente.get("/api/charlas").json()]
+    assert guardadas == list(reversed(creadas[-3:]))
+    for vieja in creadas[:2]:
+        assert cliente.get(f"/api/charlas/{vieja}").status_code == 404
+
+
+def test_pagina_enlaza_el_diagrama_de_arquitectura(cliente: TestClient):
+    pagina = cliente.get("/").text
+    assert "/static/arquitectura.svg" in pagina
+    diagrama = cliente.get("/static/arquitectura.svg")
+    assert diagrama.status_code == 200
+    assert "image/svg+xml" in diagrama.headers["content-type"]
+    assert "Chat web" in diagrama.text and "Telegram" in diagrama.text
+
+
+def test_ejemplos_incluyen_preguntas_abiertas_al_equipo(cliente: TestClient):
+    guion = cliente.get("/static/app.js").text
+    assert "¿Qué agentes forman el equipo y qué hace cada uno?" in guion
+    assert "¿Quién del equipo puede ayudarme a automatizar un proceso?" in guion
+    assert "todavía no defino mi perfil de riesgo" not in guion
+
+
 def test_detecta_ruta_de_postgres():
     assert es_postgres("postgresql://usuario:clave@host:5432/base")
     assert es_postgres("postgres://usuario:clave@host/base")

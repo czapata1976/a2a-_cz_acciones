@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Consola A2A · agente_cz_A2A</title>
-  <link rel="stylesheet" href="/static/estilos.css?v=5">
+  <link rel="stylesheet" href="/static/estilos.css?v=6">
 </head>
 <body>
   <section id="login" class="login" hidden>
@@ -59,7 +59,11 @@
           <h1>Chat del proyecto</h1>
           <p id="sesion-texto" class="sutil"></p>
         </div>
-        <button id="salir" class="secundario" type="button">Salir</button>
+        <div class="acciones-barra">
+          <a class="enlace-boton" href="/static/arquitectura.svg" target="_blank" rel="noopener"
+             title="Ver el diagrama de arquitectura y los canales de consulta">Arquitectura</a>
+          <button id="salir" class="secundario" type="button">Salir</button>
+        </div>
       </header>
 
       <div id="hilo" class="hilo" aria-live="polite"></div>
@@ -86,6 +90,6 @@
     </aside>
   </div>
 
-  <script src="/static/app.js?v=6"></script>
+  <script src="/static/app.js?v=7"></script>
 </body>
 </html>
