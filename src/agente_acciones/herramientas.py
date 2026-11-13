@@ -227,11 +227,11 @@ def derivar_a_cumplimiento(motivo: str) -> str:
     """Deriva una revisión de contingencias normativas o tributarias al agente de auditoría.
 
     Úsala cuando la consulta pida opinar sobre cumplimiento, sanciones, deuda tributaria o
-    normativa: esa revisión la realiza el agente de cumplimiento y auditoría (agente_alejandra).
+    normativa: esa revisión la hace el agente de cumplimiento y auditoría del equipo.
     """
     detalle = (motivo or "").strip() or "Revisión de cumplimiento normativo o tributario"
     return (
-        "Esta revisión corresponde al agente de cumplimiento y auditoría (agente_alejandra).\n"
+        "Esta revisión corresponde al agente de cumplimiento y auditoría del equipo.\n"
         f"Motivo: {detalle}.\n"
         "Qué hacer: solicitar la revisión indicando la razón social o el nombre de fantasía de la "
         "empresa (no hace falta el RUT). Ese agente consulta SII y CMF, revisa deuda tributaria, "
