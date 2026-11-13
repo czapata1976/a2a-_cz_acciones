@@ -4,6 +4,7 @@ import os
 os.environ.setdefault("GOOGLE_API_KEY", "clave-de-prueba")
 
 from src.agente_acciones.graph import _bloque_datos, _consulta_del_texto
+from src.agente_acciones.herramientas import derivar_a_cumplimiento
 
 
 def test_detecta_ticker_y_mercado_estadounidense():
@@ -28,6 +29,15 @@ def test_bloque_lleva_precio_y_fecha_de_la_herramienta():
     assert bloque.endswith("</datos_herramientas>")
     assert "342.1" in bloque
     assert "2026-11-07" in bloque
+
+
+def test_derivacion_no_supone_que_exista_un_agente_de_cumplimiento():
+    texto = derivar_a_cumplimiento.invoke({"motivo": "impuesto por las ganancias de NVDA"})
+    assert "<equipo_a2a>" in texto
+    assert "no tiene un agente" in texto
+    assert "Nunca supongas ni inventes" in texto
+    # El texto anterior afirmaba que la revisión ya tenía dueño en el proyecto.
+    assert "Esta revisión corresponde al agente" not in texto
 
 
 def test_la_sintesis_solo_mira_la_pregunta_del_usuario():

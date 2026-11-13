@@ -62,7 +62,7 @@ su propio grafo, su propio puerto, su propio `.env` y su propio entorno virtual.
 | Canales | Telegram conectado al coordinador; el chat web y WhatsApp quedan como extras |
 | Autonomía | Consulta mercado, fundamentales y apuntes sin aprobación; entrega el análisis completo en un turno |
 | Nunca sin una persona | Pagos, compras, ventas o transferencias |
-| Fuera de alcance | Lo tributario, legal y normativo: lo deriva al agente de auditoría |
+| Fuera de alcance | Lo tributario, legal y normativo: lo declara fuera de alcance y **no supone que exista** un agente de cumplimiento; solo lo menciona si está en el equipo |
 
 ## Contrato A2A
 
@@ -349,7 +349,7 @@ que además compita en la selección automática por especialidad, agrega su fic
   "agente_cz_A2A": {
     "autor": "Carlos Zapata",
     "especialidad": "análisis de acciones e inversiones (servicio autónomo A2A)",
-    "descripcion": "Servicio A2A que entrega análisis de acciones con datos de mercado y fundamentales, condicionado al perfil de riesgo, y deriva lo tributario al agente de auditoría.",
+    "descripcion": "Servicio A2A que entrega análisis de acciones con datos de mercado y fundamentales, condicionado al perfil de riesgo; lo tributario lo declara fuera de alcance.",
     "palabras_clave": ["acción", "acciones", "invertir", "ticker", "per", "fundamentales", "portafolio", "riesgo"]
   }
 }
@@ -587,11 +587,10 @@ el estado del agente local y cuántos agentes remotos hay en el equipo.
    instrucciones.
 4. **Traza** — cada paso con su URL, latencia, estado y el texto que devolvió el agente.
 
-Sobre el redactor hay cinco **preguntas de ejemplo** que se envían con un clic. Cada una muestra una
-capacidad distinta y está probada contra el agente real: análisis de una acción de EE. UU. con perfil y
-horizonte, precio de una acción chilena en CLP, análisis cuando falta el perfil de riesgo (condiciona y
-pregunta al final), los criterios de evaluación de los apuntes y una consulta tributaria que se deriva
-al agente de auditoría.
+Sobre el redactor hay cinco **preguntas de ejemplo** que se envían con un clic. Tres muestran el agente
+de acciones (análisis de NVDA con perfil y horizonte, precio de SQM-B en CLP y una consulta tributaria
+que el agente declara fuera de su alcance) y dos son abiertas al equipo: quiénes lo forman y qué hace
+cada uno, y a quién pedirle ayuda para automatizar un proceso.
 
 ### Equipo de agentes
 

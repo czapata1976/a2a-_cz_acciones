@@ -18,8 +18,7 @@ from dotenv import load_dotenv
 DESCRIPCION = (
     "Servicio A2A autónomo de Carlos Zapata: analiza acciones con datos de mercado y fundamentales "
     "(PER, deuda/patrimonio y márgenes), entrega una decisión condicionada al perfil de riesgo y al "
-    "horizonte, y deriva lo contable o tributario al agente de auditoría. No ejecuta pagos ni "
-    "inversiones."
+    "horizonte, y declara fuera de alcance lo contable o tributario. No ejecuta pagos ni inversiones."
 )
 
 

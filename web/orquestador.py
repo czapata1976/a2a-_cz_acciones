@@ -110,6 +110,8 @@ def mensaje_de_sintesis(
         "`<equipo_a2a>` (nombre y especialidad) y apóyate en el aporte de ese agente si lo hay.\n"
         "- Si menciona a un agente del equipo con otra grafía o con una errata (por ejemplo «bryan» por "
         "«bryhan»), entiende que habla de ese agente del equipo.\n"
+        "- Si la consulta necesita un agente que no está en `<equipo_a2a>` (por ejemplo cumplimiento "
+        "tributario), no lo inventes ni prometas su revisión: di que el equipo no tiene ese agente.\n"
         "- Si nombra a alguien que no está en `<equipo_a2a>`, di que ese agente no está en el equipo."
     )
     return "\n".join(bloques)

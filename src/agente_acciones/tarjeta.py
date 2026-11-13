@@ -15,7 +15,7 @@ DESCRIPCION = (
     "con datos de mercado y fundamentales simulados del taller (PER, deuda/patrimonio y márgenes), cita "
     "la fecha de corte, entrega una decisión condicionada al perfil de riesgo y al horizonte, y explica "
     "qué invalidaría la tesis. NO ejecuta compras, ventas, pagos ni transferencias; NO asesora en "
-    "materia tributaria, legal o normativa (lo deriva al agente de auditoría); NO entrega precios reales "
+    "materia tributaria, legal o normativa (lo declara fuera de alcance); NO entrega precios reales "
     "de mercado ni cubre instrumentos distintos de acciones."
 )
 
@@ -27,7 +27,7 @@ SKILLS = [
             "Analiza una acción con datos de mercado y fundamentales simulados del taller y devuelve "
             "precio, fecha de corte, PER, deuda/patrimonio, márgenes, lectura, tesis, riesgos y una "
             "decisión condicionada al perfil y al horizonte. Necesita ticker y mercado (US o CL). Las "
-            "contingencias tributarias o legales no las evalúa: las deriva al agente de auditoría."
+            "contingencias tributarias o legales no las evalúa: las declara fuera de su alcance."
         ),
         "tags": [
             "acciones", "invertir", "inversión", "bolsa", "ticker", "per", "fundamentales",

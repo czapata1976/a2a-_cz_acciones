@@ -224,18 +224,20 @@ def consultar_fundamentales(ticker: str, pais: str) -> dict | str:
 
 @tool
 def derivar_a_cumplimiento(motivo: str) -> str:
-    """Deriva una revisión de contingencias normativas o tributarias al agente de auditoría.
+    """Marca la consulta fuera de alcance por ser normativa, legal o tributaria.
 
     Úsala cuando la consulta pida opinar sobre cumplimiento, sanciones, deuda tributaria o
-    normativa: esa revisión la hace el agente de cumplimiento y auditoría del equipo.
+    normativa: este agente no las evalúa. No inventes a quién derivarla.
     """
     detalle = (motivo or "").strip() or "Revisión de cumplimiento normativo o tributario"
     return (
-        "Esta revisión corresponde al agente de cumplimiento y auditoría del equipo.\n"
+        "Fuera de alcance: contingencias normativas, tributarias, legales o regulatorias.\n"
         f"Motivo: {detalle}.\n"
-        "Qué hacer: solicitar la revisión indicando la razón social o el nombre de fantasía de la "
-        "empresa (no hace falta el RUT). Ese agente consulta SII y CMF, revisa deuda tributaria, "
-        "sanciones y normativa aplicable, y entrega el diagnóstico con el siguiente paso."
+        "Cómo responder al usuario: revisa el bloque `<equipo_a2a>` de este turno. Si incluye un agente "
+        "de cumplimiento o auditoría, nómbralo y explica que esa revisión la hace él (puede buscar la "
+        "empresa por razón social o nombre de fantasía, sin RUT). Si el bloque no trae ese agente, o no "
+        "hay bloque, di solo que la consulta queda fuera de tu alcance y que el equipo no tiene un agente "
+        "de cumplimiento disponible. Nunca supongas ni inventes un agente de cumplimiento."
     )
 
 
