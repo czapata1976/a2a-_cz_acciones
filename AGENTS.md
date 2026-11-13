@@ -81,7 +81,8 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
     (`whatsapp/.runtime/`) nunca se versiona ni se copia a otro proyecto.
 12. Las credenciales de canales viven en `.env`; `.env.example` solo lleva las claves vacías.
 13. El chat web también es **cliente A2A**: descubre por tarjeta, reutiliza `contextId` por conversación
-    y nunca importa `src/agente_acciones`. Su equipo admite **hasta 4 agentes remotos**; el local sintetiza.
+    y nunca importa `src/agente_acciones`. Su equipo admite **hasta 4 agentes remotos**; el local sintetiza
+    y recibe en cada turno la ficha del equipo (`<equipo_a2a>`) para reconocer a cada colega.
 15. La ficha y `/salud` del agente son públicas; `message/send` exige `AGENTE_CLAVE`. Sin clave configurada
     el agente falla cerrado (rechaza todo). Lo mismo en el coordinador con `/chat` y `/telegram`.
 16. El coordinador **no reescribe** lo que responde un agente: lo devuelve tal cual y dice quién respondió.

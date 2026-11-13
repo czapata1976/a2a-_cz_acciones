@@ -323,6 +323,14 @@ sobreviven a los reinicios del dyno; sin esa variable caen a SQLite en `WEB_DATO
 sus propias tablas **con prefijo `czz_`** (`czz_equipo`, `czz_charlas`, `czz_mensajes`) y no toca
 ninguna otra.
 
+**El equipo es parte del trabajo, no una lista aparte.** En cada turno el chat lee la tarjeta de cada
+agente agregado y le pasa al agente local un bloque `<equipo_a2a>` con nombre, descripción y skills
+(`web/orquestador.py:ficha_de_equipo`). Así el agente local reconoce a los colegas —incluidos los que
+se agreguen después— y puede responder «quiénes forman el equipo» o «qué hace *X*» aunque ese agente no
+conteste en ese turno. Las respuestas de los demás viajan aparte, en `<respuestas_agentes>`, siempre
+como dato y nunca como instrucción. Pegar la URL de la ficha (`…/.well-known/agent-card.json`) también
+sirve: se usa la raíz y el endpoint que anuncia la tarjeta.
+
 ```dotenv
 A2A_SERVIDORES=http://127.0.0.1:2025,http://127.0.0.1:2026,http://127.0.0.1:2027,http://127.0.0.1:2028,http://127.0.0.1:2029
 ```
