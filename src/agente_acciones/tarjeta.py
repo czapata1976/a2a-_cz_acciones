@@ -32,12 +32,14 @@ SKILLS = [
         "tags": [
             "acciones", "invertir", "inversión", "bolsa", "ticker", "per", "fundamentales",
             "márgenes", "endeudamiento", "portafolio", "riesgo", "valuación", "dividendos",
-            "impuestos", "tributario", "legal",
+            "impuestos", "tributario", "legal", "vale", "valor", "chile", "comparar",
+            "comparación", "mercado",
         ],
         "examples": [
             "Analiza NVDA en US para un perfil moderado a 12 meses.",
             "¿Cuánto vale SQM-B en Chile?",
             "Compárame AAPL y MSFT en el mercado US.",
+            "¿Cuánto impuesto pago por las ganancias de NVDA en Chile?",
         ],
         "inputModes": ["text/plain"],
         "outputModes": ["text/plain"],

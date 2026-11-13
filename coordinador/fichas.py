@@ -122,8 +122,11 @@ def puntuar(fichas: list[Ficha], texto: str) -> list[tuple[Ficha, int]]:
     return ranking
 
 
-MINIMO = 3
-"""Puntuación mínima para atreverse a elegir: por debajo, el coordinador dice que no tiene agente."""
+MINIMO = 4
+"""Puntuación mínima para atreverse a elegir: por debajo, el coordinador dice que no tiene agente.
+
+Con 3, una pregunta de seguimiento corta («¿y si el horizonte fuera 3 meses?») alcanzaba por dos palabras
+sueltas de la ficha y acababa en el agente equivocado."""
 
 
 def elegir(fichas: list[Ficha], texto: str) -> tuple[Ficha | None, list[tuple[Ficha, int]]]:
