@@ -152,24 +152,30 @@ Pruebas automáticas (85 en total; las de integración se saltan si el servidor 
 
 ## Desplegar en Heroku
 
-Un mismo repositorio sirve las dos apps; cada una elige su rol con la config var `ROL`.
+Un mismo repositorio sirve las tres apps; cada una elige su rol con la config var `ROL`.
 
-### Desde GitHub (automático)
+### Desde GitHub (automático, vía actual)
 
-El repositorio <https://github.com/czapata1976/a2a-_cz_acciones> despliega a Heroku con
-[`.github/workflows/desplegar-heroku.yml`](.github/workflows/desplegar-heroku.yml): cada push a `main`
-publica las dos apps. Solo necesita el secreto `HEROKU_API_KEY` (token de Heroku) en
-*Settings → Secrets and variables → Actions*.
+Las tres apps están conectadas al repositorio <https://github.com/czapata1976/a2a-_cz_acciones> desde
+el dashboard de Heroku (*Deploy → Deployment method: GitHub*), con **auto-deploy de la rama `main`**:
 
-```powershell
-# token de Heroku para el secreto de GitHub (no se versiona)
-heroku authorizations:create --description "GitHub Actions deploy" --short
-```
+| App | Rama | Última vía |
+| --- | --- | --- |
+| `agente-cz-acciones` | `main` | GitHub → Heroku |
+| `coordinador-cz-acciones` | `main` | GitHub → Heroku |
+| `chat-web-cz-acciones` | `main` | GitHub → Heroku |
 
-Si el push lo haces desde el repositorio de GitHub, revisa *Actions*: cada ejecución muestra el
-resultado del despliegue de las tres apps.
+Un push a `main` construye las tres. No hace falta ningún secreto en GitHub: el token de Heroku ya no
+se usa porque no hay `git push` a Heroku desde Actions. El workflow
+[`.github/workflows/pruebas.yml`](.github/workflows/pruebas.yml) solo corre `pytest` (89 pruebas) y
+**no despliega**; si quieres desplegar sin cambiar código, usa *Manual deploy → Deploy Branch* en el
+dashboard de la app.
 
-### Desde el computador (manual)
+> Para conectar una app nueva: *Deploy → GitHub → Connect to GitHub* → repo → rama `main` →
+> *Enable Automatic Deploys*. La autorización de la GitHub App de Heroku se hace una sola vez y sirve
+> para las tres.
+
+### Desde el computador (manual, solo para recrear todo de cero)
 
 ```powershell
 # una sola vez

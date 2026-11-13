@@ -1,0 +1,32 @@
+name: Pruebas
+
+# El despliegue NO vive aquí: Heroku construye las tres apps desde GitHub con auto-deploy de `main`
+# (Deploy → GitHub en cada app). Este workflow solo verifica que el código siga pasando las pruebas.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  pytest:
+    name: pytest (89 pruebas)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt
+
+      - name: Correr pruebas
+        env:
+          # Los tests no llaman al modelo, pero el grafo se construye al importar.
+          GOOGLE_API_KEY: clave-de-relleno
+        run: python -m pytest -q

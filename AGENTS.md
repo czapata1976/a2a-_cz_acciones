@@ -53,7 +53,8 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
   El coordinador va aparte: `.venv\Scripts\python.exe scripts\servidor_coordinador.py` (8120, exige
   `COORDINADOR_CLAVE` y `URLS_AGENTES`). `langgraph dev` sigue disponible para depurar el grafo con la
   interfaz de LangGraph Studio; ahí el `assistant_id` se obtiene con `POST /assistants/search`.
-- En la nube: tres apps Heroku del mismo repo con `ROL=agente`, `ROL=coordinador` y `ROL=web`;
+- En la nube: tres apps Heroku del mismo repo con `ROL=agente`, `ROL=coordinador` y `ROL=web`, y
+  auto-deploy desde GitHub (`main`) en las tres;
   `URL_PUBLICA` publica la dirección real en la ficha y `WEB_CONCURRENCY=1` mantiene la memoria en un
   solo proceso. El chat web apunta al agente desplegado con `A2A_CZZ_URL` y `A2A_CZZ_CLAVE`, y guarda
   en Postgres (`DATABASE_URL`) con tablas propias `czz_*`; sin Postgres usa SQLite en `WEB_DATOS`.
@@ -87,8 +88,11 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
     El historial solo pesa cuando la pregunta depende del turno anterior (`es_seguimiento`).
 17. Memoria en proceso ⇒ **un solo worker** por app (`WEB_CONCURRENCY=1`). Reiniciar borra la memoria; es
     un límite declarado en el README.
-18. Cada app de Heroku define su rol con `ROL` (`agente` o `coordinador`); `URL_PUBLICA` publica la
-    dirección real en la ficha.
+18. Cada app de Heroku define su rol con `ROL` (`agente`, `coordinador` o `web`); `URL_PUBLICA` publica
+    la dirección real en la ficha.
+19. El despliegue es **GitHub → Heroku**: las tres apps están conectadas al repo con auto-deploy de
+    `main`. El workflow de Actions solo corre `pytest` y no publica nada; no hay secretos de Heroku en
+    el repositorio.
 14. La sesión del chat web es una cookie `HttpOnly` firmada con `WEB_SECRETO`, con respaldo en
     `Authorization: Bearer` para navegadores que no la conservan; las escrituras exigen la
     cabecera `X-Solicitado-Por`. La clave se guarda solo como PBKDF2 con sal.
