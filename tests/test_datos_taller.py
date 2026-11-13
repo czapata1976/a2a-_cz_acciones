@@ -43,3 +43,26 @@ def test_la_sintesis_solo_mira_la_pregunta_del_usuario():
 
 def test_sin_bloque_de_consulta_sigue_leyendo_el_texto():
     assert _consulta_del_texto("Revisa SQM-B para mi cartera en Chile") == ("SQM-B", "CL")
+
+
+def test_seguimiento_reutiliza_el_ticker_del_turno_anterior():
+    """«¿y si el horizonte fuera 3 meses?» no trae ticker: se hereda el del hilo."""
+    from langchain_core.messages import HumanMessage
+
+    from src.agente_acciones.graph import DatosDelTaller
+
+    class Pedido:
+        def __init__(self, mensajes):
+            self.messages = mensajes
+
+        def override(self, **cambios):
+            return Pedido(cambios.get("messages", self.messages))
+
+    historial = [
+        HumanMessage(content="Analiza NVDA en US para un perfil moderado a 12 meses."),
+        HumanMessage(content="¿y si el horizonte fuera 3 meses?"),
+    ]
+    resultado = DatosDelTaller()._con_datos(Pedido(historial))
+    ultimo = resultado.messages[-1]
+    assert "<datos_herramientas>" in ultimo.content
+    assert "182.4" in ultimo.content

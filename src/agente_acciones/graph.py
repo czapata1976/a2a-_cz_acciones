@@ -81,12 +81,22 @@ class DatosDelTaller(AgentMiddleware):
     """
 
     def _con_datos(self, request):
-        if request.messages and isinstance(request.messages[-1], HumanMessage):
-            consulta = _consulta_del_texto(str(request.messages[-1].content))
-            if consulta:
-                return request.override(
-                    messages=[*request.messages, HumanMessage(content=_bloque_datos(*consulta))]
-                )
+        mensajes = request.messages or []
+        if not mensajes or not isinstance(mensajes[-1], HumanMessage):
+            return request
+        consulta = _consulta_del_texto(str(mensajes[-1].content))
+        if consulta is None:
+            # Seguimiento sin ticker («¿y si el horizonte fuera 3 meses?»): se reutiliza el último
+            # ticker del hilo, para que el modelo no tenga que adivinarlo ni pedirlo de nuevo.
+            for anterior in reversed(mensajes[:-1]):
+                if isinstance(anterior, HumanMessage):
+                    consulta = _consulta_del_texto(str(anterior.content))
+                    if consulta:
+                        break
+        if consulta:
+            return request.override(
+                messages=[*mensajes, HumanMessage(content=_bloque_datos(*consulta))]
+            )
         return request
 
     def wrap_model_call(self, request, handler):
