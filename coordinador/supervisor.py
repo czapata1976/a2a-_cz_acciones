@@ -114,7 +114,7 @@ def es_seguimiento(texto: str) -> bool:
     return len(normalizar(texto)) <= 3
 
 
-def _lista_agentes(fichas: list[Ficha]) -> str:
+def lista_agentes(fichas: list[Ficha]) -> str:
     lineas = []
     for ficha in fichas:
         estado = "" if ficha.estado == "disponible" else " (no disponible ahora)"
@@ -146,14 +146,14 @@ class Supervisor:
         if not normalizar(consulta):
             return {
                 "motivo": "saludo",
-                "respuesta": SALUDO.format(agentes=_lista_agentes(self.fichas)),
+                "respuesta": SALUDO.format(agentes=lista_agentes(self.fichas)),
                 "respuesta_agente": "",
                 "saltos": [_paso("elegir", "saludo: presento el equipo", inicio)],
             }
         if es_intento_de_inyeccion(consulta):
             return {
                 "motivo": "inyeccion",
-                "respuesta": INYECCION.format(agentes=_lista_agentes(self.fichas)),
+                "respuesta": INYECCION.format(agentes=lista_agentes(self.fichas)),
                 "respuesta_agente": "",
                 "saltos": [_paso("elegir", "intento de cambiar instrucciones: no obedezco", inicio)],
             }
@@ -163,7 +163,7 @@ class Supervisor:
         if ficha is None:
             return {
                 "motivo": "ninguno",
-                "respuesta": SIN_AGENTE.format(agentes=_lista_agentes(self.fichas)),
+                "respuesta": SIN_AGENTE.format(agentes=lista_agentes(self.fichas)),
                 "respuesta_agente": "",
                 "saltos": [_paso("elegir", f"ningún agente alcanza ({resumen})", inicio)],
             }
@@ -182,7 +182,7 @@ class Supervisor:
         if ficha is None:
             return {
                 "motivo": "caido",
-                "respuesta": SIN_AGENTE.format(agentes=_lista_agentes(self.fichas)),
+                "respuesta": SIN_AGENTE.format(agentes=lista_agentes(self.fichas)),
                 "saltos": [*estado.get("saltos", []), _paso("consultar", "no encontré la ficha elegida", inicio)],
             }
         hilo = str((config.get("configurable") or {}).get("thread_id") or "sin-cliente")

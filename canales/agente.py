@@ -11,10 +11,12 @@ import uuid
 
 import httpx
 
+from canales.errores import ErrorCanal
+
 NAMESPACE_CONTEXTOS = uuid.UUID("6f9619ff-8b86-d011-b42d-00c04fc964ff")
 
 
-class ErrorAgente(RuntimeError):
+class ErrorAgente(ErrorCanal):
     """El agente no está disponible o no devolvió una respuesta utilizable."""
 
 

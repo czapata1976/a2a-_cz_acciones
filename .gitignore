@@ -1,4 +1,5 @@
 .env
+.env.produccion
 .venv/
 .venv-notebook/
 __pycache__/

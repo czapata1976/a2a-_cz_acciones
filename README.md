@@ -3,16 +3,16 @@
 **Entrega del taller A2A en producción.** El sistema está desplegado en Heroku, con tres apps y una
 dirección pública HTTPS cada una, sin depender de ningún computador local:
 
-| Pieza | Dirección pública | Qué es |
-| --- | --- | --- |
-| Agente `agente_cz_A2A` | <https://agente-cz-acciones-50f663cbb84c.herokuapp.com> | Servicio A2A propio: ficha, `message/send` con clave y `/salud` |
-| Coordinador | <https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com> | Supervisor que elige un agente, lo cita, recuerda la conversación y atiende el canal |
-| Chat web | <https://chat-web-cz-acciones-08a900afb62c.herokuapp.com> | Consola con login, equipo de hasta 4 agentes remotos y traza del flujo A2A |
+| Pieza                    | Dirección pública                                                                                                     | Qué es                                                                               |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| Agente `agente_cz_A2A` | [https://agente-cz-acciones-50f663cbb84c.herokuapp.com](https://agente-cz-acciones-50f663cbb84c.herokuapp.com)           | Servicio A2A propio: ficha, `message/send` con clave y `/salud`                   |
+| Coordinador              | [https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com](https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com) | Supervisor que elige un agente, lo cita, recuerda la conversación y atiende el canal |
+| Chat web                 | [https://chat-web-cz-acciones-08a900afb62c.herokuapp.com](https://chat-web-cz-acciones-08a900afb62c.herokuapp.com)       | Consola con login, equipo de hasta 4 agentes remotos y traza del flujo A2A            |
 
-| Integrante | Agente | Skill | Ficha pública | Dueño del despliegue |
-| --- | --- | --- | --- | --- |
-| Carlos Zapata | `agente_cz_A2A` | analizar acciones con datos de mercado y fundamentales | <https://agente-cz-acciones-50f663cbb84c.herokuapp.com/.well-known/agent-card.json> | Carlos Zapata |
-| Bryhan (otro grupo) | `agente_bryhan` | perfil, procesos, diseño de datos/IA y comparación técnica | <https://agente-bryhan-624098704764.southamerica-west1.run.app/.well-known/agent-card.json> | Bryhan (extra: agente de otro grupo) |
+| Integrante          | Agente            | Skill                                                         | Ficha pública                                                                                                                                                                        | Dueño del despliegue          |
+| ------------------- | ----------------- | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Carlos Zapata       | `agente_cz_A2A` | analizar acciones con datos de mercado y fundamentales        | [https://agente-cz-acciones-50f663cbb84c.herokuapp.com/.well-known/agent-card.json](https://agente-cz-acciones-50f663cbb84c.herokuapp.com/.well-known/agent-card.json)                 | Carlos Zapata                  |
+| Bryhan (otro grupo) | `agente_bryhan` | perfil, procesos, diseño de datos/IA y comparación técnica | [https://agente-bryhan-624098704764.southamerica-west1.run.app/.well-known/agent-card.json](https://agente-bryhan-624098704764.southamerica-west1.run.app/.well-known/agent-card.json) | Bryhan (extra: agente externo) |
 
 ### Prueba directa de cada agente
 
@@ -52,28 +52,28 @@ su propio grafo, su propio puerto, su propio `.env` y su propio entorno virtual.
 > `grupo-1-taller-a2a - entrega`. No comparte código ni entorno con el proyecto del grupo; solo
 > intercambia mensajes A2A por HTTP.
 
-| Qué definir | Esta copia |
-| --- | --- |
-| Grafo / nombre A2A | `agente_cz_A2A` |
-| En la nube | <https://agente-cz-acciones-50f663cbb84c.herokuapp.com> (Heroku, HTTPS) |
-| En local | `http://127.0.0.1:2029` (`scripts\servidor_agente.py`) |
-| Tipo de servicio | A2A propio: FastAPI + JSON-RPC `message/send`, ficha y `/salud` |
-| Coordinador | <https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com> (`POST /chat`, canal `POST /telegram`) |
-| Canales | Telegram conectado al coordinador; el chat web y WhatsApp quedan como extras |
-| Autonomía | Consulta mercado, fundamentales y apuntes sin aprobación; entrega el análisis completo en un turno |
-| Nunca sin una persona | Pagos, compras, ventas o transferencias |
-| Fuera de alcance | Lo tributario, legal y normativo: lo declara fuera de alcance y **no supone que exista** un agente de cumplimiento; solo lo menciona si está en el equipo |
+| Qué definir          | Esta copia                                                                                                                                                         |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Grafo / nombre A2A    | `agente_cz_A2A`                                                                                                                                                  |
+| En la nube            | [https://agente-cz-acciones-50f663cbb84c.herokuapp.com](https://agente-cz-acciones-50f663cbb84c.herokuapp.com) (Heroku, HTTPS)                                      |
+| En local              | `http://127.0.0.1:2029` (`scripts\servidor_agente.py`)                                                                                                         |
+| Tipo de servicio      | A2A propio: FastAPI + JSON-RPC `message/send`, ficha y `/salud`                                                                                                |
+| Coordinador           | [https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com](https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com) (`POST /chat`, canal `POST /telegram`) |
+| Canales               | Telegram **y WhatsApp** conectados al coordinador; el chat web queda como extra                                                                                     |
+| Autonomía            | Consulta mercado, fundamentales y apuntes sin aprobación; entrega el análisis completo en un turno                                                               |
+| Nunca sin una persona | Pagos, compras, ventas o transferencias                                                                                                                            |
+| Fuera de alcance      | Lo tributario, legal y normativo: lo declara fuera de alcance y **no supone que exista** un agente de cumplimiento; solo lo menciona si está en el equipo   |
 
 ## Contrato A2A
 
 Todo lo que otro agente necesita está en la ficha; no hay acoplamiento al código. El coordinador lee
 `.well-known/agent-card.json` de cada URL de `URLS_AGENTES`.
 
-| Paso | Llamada | Para qué |
-| --- | --- | --- |
-| 1 | `GET /.well-known/agent-card.json` | Leer nombre, skills, límites y el endpoint A2A (público) |
-| 2 | `POST /a2a` con `message/send` y `X-Agente-Clave` | Enviar la tarea y recibir la respuesta |
-| 3 | `GET /salud` | Comprobar que el agente está arriba (público) |
+| Paso | Llamada                                                 | Para qué                                                  |
+| ---- | ------------------------------------------------------- | ---------------------------------------------------------- |
+| 1    | `GET /.well-known/agent-card.json`                    | Leer nombre, skills, límites y el endpoint A2A (público) |
+| 2    | `POST /a2a` con `message/send` y `X-Agente-Clave` | Enviar la tarea y recibir la respuesta                     |
+| 3    | `GET /salud`                                          | Comprobar que el agente está arriba (público)            |
 
 Reglas del contrato:
 
@@ -156,14 +156,14 @@ Un mismo repositorio sirve las tres apps; cada una elige su rol con la config va
 
 ### Desde GitHub (automático, vía actual)
 
-Las tres apps están conectadas al repositorio <https://github.com/czapata1976/a2a-_cz_acciones> desde
+Las tres apps están conectadas al repositorio [https://github.com/czapata1976/a2a-_cz_acciones](https://github.com/czapata1976/a2a-_cz_acciones) desde
 el dashboard de Heroku (*Deploy → Deployment method: GitHub*), con **auto-deploy de la rama `main`**:
 
-| App | Rama | Última vía |
-| --- | --- | --- |
-| `agente-cz-acciones` | `main` | GitHub → Heroku |
+| App                         | Rama     | Última vía     |
+| --------------------------- | -------- | ---------------- |
+| `agente-cz-acciones`      | `main` | GitHub → Heroku |
 | `coordinador-cz-acciones` | `main` | GitHub → Heroku |
-| `chat-web-cz-acciones` | `main` | GitHub → Heroku |
+| `chat-web-cz-acciones`    | `main` | GitHub → Heroku |
 
 Un push a `main` construye las tres. No hace falta ningún secreto en GitHub: el token de Heroku ya no
 se usa porque no hay `git push` a Heroku desde Actions. El workflow
@@ -192,10 +192,14 @@ heroku config:set --app agente-cz-acciones ROL=agente GOOGLE_API_KEY=... MODELO=
   AGENTE_CLAVE=... URL_PUBLICA=https://agente-cz-acciones-50f663cbb84c.herokuapp.com WEB_CONCURRENCY=1
 git push agente HEAD:main
 
-# coordinador (usa la URL y la clave del agente)
+# coordinador (usa la URL y la clave del agente; también atiende el canal de WhatsApp)
+heroku buildpacks:add --index 1 heroku/nodejs --app coordinador-cz-acciones
 heroku config:set --app coordinador-cz-acciones ROL=coordinador COORDINADOR_CLAVE=... ^
   "URLS_AGENTES=[{""url"":""https://agente-cz-acciones-50f663cbb84c.herokuapp.com"",""clave"":""...""}]" ^
-  TELEGRAM_TOKEN=... TELEGRAM_SECRET=... SALTOS=true WEB_CONCURRENCY=1
+  TELEGRAM_TOKEN=... TELEGRAM_SECRET=... SALTOS=true WEB_CONCURRENCY=1 ^
+  WHATSAPP_HABILITADO=true WHATSAPP_PUENTE=true WHATSAPP_SESION_DURABLE=true ^
+  WHATSAPP_SECRET=<16+ caracteres> CANALES_TOKEN=<token del operador> ^
+  DATABASE_URL=<el mismo Postgres del taller>
 git push coordinador HEAD:main
 
 # chat web (login propio; habla con el agente desplegado por A2A)
@@ -218,7 +222,6 @@ olvidaría sus turnos.
 
 Ficha para los demás agentes: la tarjeta se genera desde `URL_PUBLICA`, así que no hay que configurarla
 a mano en cada arranque.
-
 
 ```powershell
 .venv\Scripts\python.exe scripts\configurar_tarjeta.py
@@ -298,20 +301,22 @@ URLS_AGENTES=[{"url": "https://agente-cz-acciones-50f663cbb84c.herokuapp.com", "
 ### Quién elige al agente
 
 El supervisor lee las fichas y puntúa la pregunta contra el nombre, la descripción, las skills, sus
-etiquetas y sus ejemplos. Solo usa el historial cuando la pregunta depende del turno anterior
-(«¿y a 6 meses?»), para que una consulta de otro tema no herede el asunto previo. Si nadie alcanza el
-mínimo, responde que no tiene un agente para eso. Cada respuesta empieza con `Respondió: <agente>` y
-devuelve el texto del agente sin reescribirlo.
+etiquetas y sus ejemplos. **Nombrar a un agente basta para elegirlo**: «¿qué hace Bryhan?» no comparte
+ninguna otra palabra con su ficha, así que el nombre pesa más que todo lo demás y se tolera una letra de
+diferencia («Bryan»). Solo usa el historial cuando la pregunta depende del turno anterior («¿y a 6
+meses?»), para que una consulta de otro tema no herede el asunto previo. Si nadie alcanza el mínimo,
+responde que no tiene un agente para eso. Cada respuesta empieza con `Respondió: <agente>` y devuelve el
+texto del agente sin reescribirlo.
 
 ### Extra: chat web con equipo de agentes
 
 El chat (login propio) permite sumar hasta 4 agentes públicos, consultarlos en paralelo y ver la
 traza A2A de cada turno.
 
-| Dónde | Dirección |
-| --- | --- |
-| En la nube | <https://chat-web-cz-acciones-08a900afb62c.herokuapp.com> (`ROL=web` en Heroku) |
-| En local | <http://127.0.0.1:8110> (`scripts\servidor_web.py`) |
+| Dónde     | Dirección                                                                                                                                |
+| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| En la nube | [https://chat-web-cz-acciones-08a900afb62c.herokuapp.com](https://chat-web-cz-acciones-08a900afb62c.herokuapp.com) (`ROL=web` en Heroku) |
+| En local   | [http://127.0.0.1:8110](http://127.0.0.1:8110) (`scripts\servidor_web.py`)                                                               |
 
 Es una demo aparte: el camino de la entrega es el coordinador y el canal. El login se configura con
 `WEB_USUARIO`, `WEB_CLAVE_HASH` y `WEB_SECRETO` (`scripts\clave_web.py`); en la nube el agente que
@@ -357,15 +362,16 @@ que además compita en la selección automática por especialidad, agrega su fic
 
 ## Qué pasa cuando algo falla
 
-| Situación | Qué hace el sistema |
-| --- | --- |
-| Un agente no responde o está apagado | El coordinador avisa «La parte de *X* no está disponible ahora (motivo)» y lista los agentes que siguen arriba. Los demás siguen respondiendo sus temas. |
-| Un agente estaba caído al arrancar el coordinador | La ficha se marca «no disponible» y el coordinador **vuelve a leerla** en el siguiente mensaje (cada 15 s como máximo), sin reiniciar. |
-| Llega una foto, sticker o audio | El canal responde «No puedo leer ese tipo de mensaje: solo entiendo texto». No se inventa contenido. |
-| Piden «ignora tus instrucciones» | El coordinador mantiene su rol, lo dice y sigue ofreciendo los agentes del equipo. |
-| Nadie del equipo sabe | «No tengo un agente para eso» y la lista de lo que el equipo cubre. |
-| Falta la clave | `/chat`, `/telegram` y `message/send` responden **401**. La ficha y `/salud` siguen siendo públicas. |
-| El agente falla a mitad de una consulta | Devuelve una tarea en estado `failed` con el motivo; el coordinador lo informa como parte no disponible. |
+| Situación                                         | Qué hace el sistema                                                                                                                                           |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Un agente no responde o está apagado              | El coordinador avisa «La parte de *X* no está disponible ahora (motivo)» y lista los agentes que siguen arriba. Los demás siguen respondiendo sus temas. |
+| Un agente estaba caído al arrancar el coordinador | La ficha se marca «no disponible» y el coordinador **vuelve a leerla** en el siguiente mensaje (cada 15 s como máximo), sin reiniciar.                |
+| Llega una foto, sticker o audio                    | El canal responde «No puedo leer ese tipo de mensaje: solo entiendo texto». No se inventa contenido.                                                         |
+| Piden «ignora tus instrucciones»                 | El coordinador mantiene su rol, lo dice y sigue ofreciendo los agentes del equipo.                                                                             |
+| Nadie del equipo sabe                              | «No tengo un agente para eso» y la lista de lo que el equipo cubre.                                                                                          |
+| Falta la clave                                     | `/chat`, `/telegram` y `message/send` responden **401**. La ficha y `/salud` siguen siendo públicas.                                            |
+| El agente falla a mitad de una consulta            | Devuelve una tarea en estado `failed` con el motivo; el coordinador lo informa como parte no disponible.                                                     |
+| Se pierde la sesión de WhatsApp                    | El puente vuelve a `disabled` y hay que revincular con el QR. Con `WHATSAPP_SESION_DURABLE=true` sobrevive a los reinicios porque vive cifrada en `czz_wa_sesion`. |
 
 ## Límites conocidos
 
@@ -379,7 +385,7 @@ que además compita en la selección automática por especialidad, agrega su fic
   y le pasa al agente el `contextId` del hilo.
 - El canal de Telegram requiere que el webhook del bot apunte a `https://<coordinador>/telegram` con el
   `TELEGRAM_SECRET`.
-- El chat web y WhatsApp son extras de demostración; el camino evaluado es coordinador + Telegram.
+- El chat web es un extra de demostración; el camino evaluado es coordinador + Telegram + WhatsApp.
 - El túnel de Cloudflare sirve para pruebas locales; **no** forma parte de la entrega (el PDF no lo
   acepta como producción).
 
@@ -387,11 +393,11 @@ que además compita en la selección automática por especialidad, agrega su fic
 
 En `evidencias/`:
 
-| Archivo | Qué muestra |
-| --- | --- |
+| Archivo                         | Qué muestra                                                                                                    |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `verificacion_resultados.txt` | Recorrido automático de los resultados 1-8, 10 y 11 contra las URLs públicas, con «debía / pasó / estado» |
-| `saltos_coordinador.txt` | Salida de `probar_coordinador.py --saltos`: elección de agente, consulta y cita en cada turno |
-| `agente_apagado.txt` | Resultado 9: se apaga el agente de acciones, el coordinador avisa y el otro agente sigue respondiendo |
+| `saltos_coordinador.txt`      | Salida de `probar_coordinador.py --saltos`: elección de agente, consulta y cita en cada turno                |
+| `agente_apagado.txt`          | Resultado 9: se apaga el agente de acciones, el coordinador avisa y el otro agente sigue respondiendo           |
 
 Regenerar:
 
@@ -442,11 +448,11 @@ Los canales son un **cliente A2A más**: no importan el grafo, hablan con el age
 agente puede reiniciarse sin perder el hilo de los canales y el mismo canal sirve para cualquier
 agente A2A del grupo.
 
-| Proceso | Puerto | Para qué |
-| --- | --- | --- |
-| Agente | 2029 | `langgraph dev` (A2A) |
-| Canales | 8100 | API de Telegram y WhatsApp (`scripts/servidor_canales.py`) |
-| Puente WhatsApp | 18082 | Node + Baileys, solo loopback |
+| Proceso         | Puerto | Para qué                                                    |
+| --------------- | ------ | ------------------------------------------------------------ |
+| Agente          | 2029   | `langgraph dev` (A2A)                                      |
+| Canales         | 8100   | API de Telegram y WhatsApp (`scripts/servidor_canales.py`) |
+| Puente WhatsApp | 18082  | Node + Baileys, solo loopback                                |
 
 ### Preparación
 
@@ -497,33 +503,49 @@ sin escribirle a un chat real.
 ### WhatsApp
 
 El puente usa la **conversación contigo mismo** ("Mensajes guardados"): lo que escribes ahí es lo que
-responde el agente. Para vincular el teléfono:
+responde el agente. Cada mensaje entra por `POST /whatsapp/mensaje` y sigue el **mismo camino que
+Telegram**: el supervisor elige un agente del equipo, lo cita (`Respondió: <agente>`) y no reescribe su
+texto.
+
+**En producción el canal vive en `coordinador-cz-acciones`.** Esa app suma el buildpack
+`heroku/nodejs` (el puente es Node/Baileys) y arranca el puente dentro de su propio dyno
+(`WHATSAPP_PUENTE=true`), hablando con la API por loopback. Como el disco del dyno es efímero y Heroku
+lo recicla al menos cada 24 h, la sesión vinculada se guarda cifrada en Postgres
+(`WHATSAPP_SESION_DURABLE=true`, tabla `czz_wa_sesion` con AES-256-GCM y una llave derivada de
+`WHATSAPP_SECRET`): así no hay que volver a escanear el QR en cada deploy. `GET /salud` informa
+`canal_whatsapp` y `puente_whatsapp.activo`.
+
+Para vincular el teléfono (una sola vez por sesión perdida):
 
 ```powershell
+$c = "https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com"
+$t = @{ "X-Canales-Token" = "<CANALES_TOKEN>" }
 # 1. elegir QR (por defecto el puente pide código por teléfono)
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8100/whatsapp/modo" `
+Invoke-RestMethod -Method Post -Uri "$c/whatsapp/modo" -Headers $t `
   -ContentType "application/json" -Body '{"modo":"qr"}'
 # 2. abrir la sesión
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8100/whatsapp/conectar"
+Invoke-RestMethod -Method Post -Uri "$c/whatsapp/conectar" -Headers $t
 # 3. ver el QR y escanearlo desde WhatsApp > Dispositivos vinculados
-Start-Process "http://127.0.0.1:8100/whatsapp/qr.png"
+Start-Process "$c/whatsapp/qr.png`?token=<CANALES_TOKEN>"
 ```
 
 Para vincular con código: `POST /whatsapp/codigo` con `{"telefono":"56911112222"}` (sin `+` ni
 separadores) y luego el código en el teléfono. Estado y cierre:
 `GET /whatsapp/estado`, `POST /whatsapp/desconectar`.
 
-La sesión vinculada queda en `whatsapp/.runtime/` (ignorado por git: son credenciales).
+En local el camino sigue siendo `scripts/servidor_canales.py` (puente en el puerto 18082), con
+`WHATSAPP_PUENTE=false` y `WHATSAPP_SESION_DURABLE=false`: la sesión queda en
+`whatsapp/.runtime/` (ignorado por git: son credenciales) y no toca el Postgres del taller.
 
 ### Endpoints
 
-| Método | Ruta | Uso |
-| --- | --- | --- |
-| POST | `/telegram/webhook` | Telegram (secreto en cabecera) |
-| POST | `/whatsapp/mensaje` | Puente Baileys (secreto compartido) |
-| GET | `/whatsapp/estado` · `/qr` · `/qr.png` · `/codigo` | Estado y vinculación |
-| POST | `/whatsapp/conectar` · `/desconectar` · `/modo` · `/codigo` | Control de la vinculación |
-| GET | `/ok` · `/salud` | Salud del servicio y del agente |
+| Método | Ruta                                                                   | Uso                                 |
+| ------- | ---------------------------------------------------------------------- | ----------------------------------- |
+| POST    | `/telegram/webhook`                                                  | Telegram (secreto en cabecera)      |
+| POST    | `/whatsapp/mensaje`                                                  | Puente Baileys (secreto compartido) |
+| GET     | `/whatsapp/estado` · `/qr` · `/qr.png` · `/codigo`          | Estado y vinculación               |
+| POST    | `/whatsapp/conectar` · `/desconectar` · `/modo` · `/codigo` | Control de la vinculación          |
+| GET     | `/ok` · `/salud`                                                  | Salud del servicio y del agente     |
 
 Si defines `CANALES_TOKEN`, la gestión exige `X-Canales-Token` (o `?token=` para abrir el QR en el
 navegador).
@@ -541,10 +563,10 @@ npm run whatsapp:test                                          # puente Node
 que agregues por su URL pública. Cada turno se ve en el panel **Flujo A2A**: descubrimiento de cada
 tarjeta, consulta en paralelo a los agentes del equipo y síntesis del agente local.
 
-| Proceso | Puerto | Para qué |
-| --- | --- | --- |
-| Agente | 2029 | `langgraph dev` (A2A), también sintetiza |
-| Chat web | 8110 | FastAPI + página estática (`scripts/servidor_web.py`) |
+| Proceso  | Puerto | Para qué                                                 |
+| -------- | ------ | --------------------------------------------------------- |
+| Agente   | 2029   | `langgraph dev` (A2A), también sintetiza               |
+| Chat web | 8110   | FastAPI + página estática (`scripts/servidor_web.py`) |
 
 ### Preparación
 
@@ -601,15 +623,15 @@ cada uno, y a quién pedirle ayuda para automatizar un proceso.
 
 ### Endpoints
 
-| Método | Ruta | Uso |
-| --- | --- | --- |
-| POST | `/api/login` · `/api/logout` | Sesión con cookie firmada |
-| GET | `/api/sesion` | Usuario, agente y tope de equipo |
-| GET · POST · DELETE | `/api/agentes` | Equipo (máximo 4, validado por tarjeta) |
-| GET · POST | `/api/charlas` | Conversaciones guardadas en SQLite |
-| GET · DELETE | `/api/charlas/{id}` | Historial y borrado |
-| POST | `/api/charlas/{id}/mensaje` | Turno A2A completo con su traza |
-| GET | `/ok` · `/salud` | Salud del servicio y del agente |
+| Método               | Ruta                              | Uso                                      |
+| --------------------- | --------------------------------- | ---------------------------------------- |
+| POST                  | `/api/login` · `/api/logout` | Sesión con cookie firmada               |
+| GET                   | `/api/sesion`                   | Usuario, agente y tope de equipo         |
+| GET · POST · DELETE | `/api/agentes`                  | Equipo (máximo 4, validado por tarjeta) |
+| GET · POST           | `/api/charlas`                  | Conversaciones guardadas en SQLite       |
+| GET · DELETE         | `/api/charlas/{id}`             | Historial y borrado                      |
+| POST                  | `/api/charlas/{id}/mensaje`     | Turno A2A completo con su traza          |
+| GET                   | `/ok` · `/salud`             | Salud del servicio y del agente          |
 
 Las escrituras exigen la cabecera `X-Solicitado-Por: chat-web` (la pone la página): un formulario de
 otro sitio no puede enviarla. Tras cinco intentos fallidos, el login bloquea ese origen 60 segundos.
@@ -646,16 +668,16 @@ mi-agente-czz/
 
 ## Diferencias con `mi-agente-cz`
 
-| Aspecto | `mi-agente-cz` (original) | `mi-agente-czz` (esta copia) |
-| --- | --- | --- |
-| Grafo | `agente_czz` | `agente_cz_A2A` |
-| Puerto | 2025 | 2029 (canales en 8100, chat web en 8110) |
-| Entorno | `.venv` del original | `.venv`, `.env` y `node_modules` propios |
-| Identidad | Agente del taller | Servicio autónomo para A2A |
-| Prompt | Método de asesoría | Método + bloque de servicio A2A y respuesta sin bloquear el turno |
-| Canales | Solo notebook y Bruno | **Telegram y WhatsApp** operativos, con pruebas |
-| Interfaz | Notebook | **Chat web con login, equipo de 4 agentes y flujo A2A**, con pruebas |
-| Convivencia | — | Se puede levantar junto al original sin colisiones |
+| Aspecto     | `mi-agente-cz` (original) | `mi-agente-czz` (esta copia)                                             |
+| ----------- | --------------------------- | -------------------------------------------------------------------------- |
+| Grafo       | `agente_czz`              | `agente_cz_A2A`                                                          |
+| Puerto      | 2025                        | 2029 (canales en 8100, chat web en 8110)                                   |
+| Entorno     | `.venv` del original      | `.venv`, `.env` y `node_modules` propios                             |
+| Identidad   | Agente del taller           | Servicio autónomo para A2A                                                |
+| Prompt      | Método de asesoría        | Método + bloque de servicio A2A y respuesta sin bloquear el turno         |
+| Canales     | Solo notebook y Bruno       | **Telegram y WhatsApp** operativos, con pruebas                      |
+| Interfaz    | Notebook                    | **Chat web con login, equipo de 4 agentes y flujo A2A**, con pruebas |
+| Convivencia | —                          | Se puede levantar junto al original sin colisiones                         |
 
 > `.env` contiene claves y está ignorado por git. El zip debe incluir `.env.example`, no `.env` ni
 > `whatsapp/.runtime/` (credenciales de la sesión de WhatsApp).

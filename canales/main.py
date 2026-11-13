@@ -42,9 +42,21 @@ def crear_app(settings: Settings | None = None, agente: AgenteA2A | None = None)
         settings.a2a_url, settings.a2a_graph, settings.a2a_timeout
     )
     app.state.enviar_telegram = telegram.enviar_telegram
+    app.state.whatsapp_responder = app.state.agente.consultar
 
     app.include_router(telegram.router)
-    app.include_router(whatsapp.router)
+    app.include_router(
+        whatsapp.crear_router(
+            whatsapp.CanalWhatsApp(
+                habilitado=settings.whatsapp_habilitado,
+                secreto=settings.whatsapp_secret,
+                url_interna=settings.whatsapp_url_interna,
+                timeout=settings.whatsapp_timeout,
+                max_caracteres=settings.whatsapp_max_caracteres,
+                token_operador=settings.canales_token,
+            )
+        )
+    )
 
     @app.get("/ok", tags=["salud"])
     async def ok() -> dict:

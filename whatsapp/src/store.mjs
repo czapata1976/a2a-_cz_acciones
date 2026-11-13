@@ -4,24 +4,24 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const owners = new Map();
-const defaultDirectory = process.env.WHATSAPP_AUTH_DIR
+export const defaultDirectory = process.env.WHATSAPP_AUTH_DIR
   ? resolve(process.env.WHATSAPP_AUTH_DIR)
   : resolve(dirname(fileURLToPath(import.meta.url)), '../.runtime/whatsapp-auth');
 
 export class Store {
-  constructor(directory, capacity) {
-    Object.assign(this, { directory, capacity, active: true });
+  constructor(directory, capacity, alGuardar = null) {
+    Object.assign(this, { directory, capacity, active: true, alGuardar });
     this.claims = new Map();
     this.closing = false;
     this.authTail = Promise.resolve();
     this.closePromise = null;
   }
 
-  static async open({ directory = defaultDirectory, capacity = 2048 } = {}) {
+  static async open({ directory = defaultDirectory, capacity = 2048, alGuardar = null } = {}) {
     directory = resolve(directory);
     if (!Number.isInteger(capacity) || capacity < 1 || capacity > 8192) throw Error('invalid_claim_capacity');
     if (owners.has(directory)) throw Error('single_owner_already_active');
-    const store = new Store(directory, capacity);
+    const store = new Store(directory, capacity, alGuardar);
     owners.set(directory, store);
     try {
       await mkdir(directory, { recursive: true, mode: 0o700 });
@@ -60,6 +60,9 @@ export class Store {
       this.assertOwner(true);
       const result = await operation();
       await this.restrictFiles();
+      // Copia durable de las credenciales (Postgres). Va dentro del turno de escritura: si se
+      // adelantara, guardaría archivos a medio escribir.
+      if (this.alGuardar) await this.alGuardar();
       return result;
     });
     this.authTail = accepted.then(

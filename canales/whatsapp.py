@@ -1,47 +1,67 @@
-"""Canal WhatsApp: mensajes del puente Baileys y gestión de la vinculación.
+"""Canal WhatsApp: mensajes del puente Baileys y gesti?n de la vinculaci?n.
 
-El puente (Node + Baileys, en `whatsapp/`) escucha solo en loopback, envía cada mensaje propio a
-`POST /whatsapp/mensaje` y exige el secreto compartido `WHATSAPP_SECRET`. Los endpoints de gestión
-(estado, conectar, QR, código) se protegen con `CANALES_TOKEN` si está configurado.
+El puente (Node + Baileys, en `whatsapp/`) escucha solo en loopback, env?a cada mensaje propio a
+`POST /whatsapp/mensaje` y exige el secreto compartido `WHATSAPP_SECRET`. Los endpoints de gesti?n
+(estado, conectar, QR, c?digo) se protegen con el token de operador si est? configurado.
+
+El router se construye con `crear_router`, as? lo monta tanto el servicio de canales (que consulta al
+agente por A2A) como el coordinador (que elige un agente del equipo con su supervisor). Quien monta el
+router deja en `app.state.whatsapp_responder` la funci?n `async (texto, sesion) -> str`.
 """
 from __future__ import annotations
 
 import base64
 import logging
 import secrets
-from typing import Literal
+from dataclasses import dataclass
+from typing import Awaitable, Callable, Literal
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import Response
 from pydantic import BaseModel, ConfigDict, Field
 
-from canales.agente import ErrorAgente
-from canales.config import Settings
+from canales.errores import ErrorCanal
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
-
 MENSAJE_AYUDA = (
     "Hola. Soy el canal WhatsApp de agente_cz_A2A, el asesor de acciones de Carlos Zapata.\n\n"
-    "Escríbeme una consulta con el ticker y el mercado, por ejemplo:\n"
-    "  ¿Cuánto vale AAPL en el mercado US?\n"
-    "  Compara NVDA y MSFT en US para un horizonte de 3 años.\n\n"
+    "Escr?beme una consulta con el ticker y el mercado, por ejemplo:\n"
+    "  ?Cu?nto vale AAPL en el mercado US?\n"
+    "  Compara NVDA y MSFT en US para un horizonte de 3 a?os.\n\n"
     "No ejecuto pagos ni inversiones; lo tributario lo deriva a un especialista."
 )
 
 MENSAJES_ERROR_PUENTE = {
-    "operator_authentication_required": "El puente rechazó la credencial del servicio.",
-    "connection_not_authorized": "La vinculación no está autorizada en este despliegue.",
+    "operator_authentication_required": "El puente rechaz? la credencial del servicio.",
+    "connection_not_authorized": "La vinculaci?n no est? autorizada en este despliegue.",
     "disconnect_before_new_attempt": "Desconecta el intento anterior antes de iniciar otro.",
-    "link_mode_unavailable": "No se puede cambiar el modo de vinculación en este momento.",
-    "pairing_not_ready": "WhatsApp todavía no habilitó la solicitud de código.",
-    "invalid_phone": "El número debe tener entre 7 y 15 dígitos, sin + ni separadores.",
-    "invalid_link_mode": "El modo de vinculación debe ser code o qr.",
+    "link_mode_unavailable": "No se puede cambiar el modo de vinculaci?n en este momento.",
+    "pairing_not_ready": "WhatsApp todav?a no habilit? la solicitud de c?digo.",
+    "invalid_phone": "El n?mero debe tener entre 7 y 15 d?gitos, sin + ni separadores.",
+    "invalid_link_mode": "El modo de vinculaci?n debe ser code o qr.",
     "invalid_input": "La solicitud al puente no tiene el formato esperado.",
-    "not_found": "El puente no reconoce la operación solicitada.",
+    "not_found": "El puente no reconoce la operaci?n solicitada.",
 }
+
+Responder = Callable[[str, str], Awaitable[str]]
+"""Consulta `(texto, sesion)` y devuelve el texto que se env?a al chat."""
+
+
+@dataclass(frozen=True)
+class CanalWhatsApp:
+    """Ajustes del canal y del puente, ya resueltos por el servicio que lo monta."""
+
+    habilitado: bool
+    secreto: str
+    url_interna: str = "http://127.0.0.1:18082"
+    timeout: float = 20.0
+    max_caracteres: int = 3500
+    token_operador: str = ""
+    ayuda: str | Callable[[], str] | None = MENSAJE_AYUDA
+    """Texto para /start, /help y /ayuda. Una función permite armarlo con el equipo del momento; con
+    `None` el mensaje llega al agente."""
 
 
 class MensajeWhatsApp(BaseModel):
@@ -78,23 +98,13 @@ def _recortar(texto: str, limite: int) -> str:
     return texto[: max(1, limite - len(sufijo))].rstrip() + sufijo
 
 
-def autorizar_operador(request: Request) -> None:
-    """Protege la gestión del puente cuando `CANALES_TOKEN` está configurado."""
-    settings: Settings = request.app.state.settings
-    if not settings.canales_token:
-        return
-    recibido = request.headers.get("x-canales-token") or request.query_params.get("token") or ""
-    if not secrets.compare_digest(recibido.encode("utf-8"), settings.canales_token.encode("utf-8")):
-        raise HTTPException(status_code=403, detail="Token de operador inválido.")
-
-
 class ClientePuente:
     """Traduce el API interno del puente a llamadas HTTP con el secreto compartido."""
 
-    def __init__(self, settings: Settings) -> None:
-        self.base_url = settings.whatsapp_url_interna
-        self.secreto = settings.whatsapp_secret
-        self.timeout = settings.whatsapp_timeout
+    def __init__(self, canal: CanalWhatsApp) -> None:
+        self.base_url = canal.url_interna
+        self.secreto = canal.secreto
+        self.timeout = canal.timeout
 
     async def _peticion(self, metodo: str, ruta: str, json: dict | None = None) -> dict:
         try:
@@ -119,12 +129,12 @@ class ClientePuente:
         if respuesta.status_code >= 400:
             codigo = str(datos.get("error") or "whatsapp_operation_failed")
             mensaje = MENSAJES_ERROR_PUENTE.get(
-                codigo, "El puente no pudo completar la operación; revisa el estado."
+                codigo, "El puente no pudo completar la operaci?n; revisa el estado."
             )
             estado = 422 if respuesta.status_code in {400, 422} else 409 if respuesta.status_code == 409 else 503
             raise HTTPException(status_code=estado, detail=mensaje)
         if not isinstance(datos, dict):
-            raise HTTPException(status_code=502, detail="El puente devolvió una respuesta inválida.")
+            raise HTTPException(status_code=502, detail="El puente devolvi? una respuesta inv?lida.")
         return datos
 
     async def estado(self) -> dict:
@@ -148,102 +158,103 @@ class ClientePuente:
         return await self._peticion("GET", "/internal/qr")
 
 
-def _puente(request: Request) -> ClientePuente:
-    settings: Settings = request.app.state.settings
-    if not (settings.whatsapp_habilitado and settings.whatsapp_secret):
-        raise HTTPException(
-            status_code=503,
-            detail="El canal WhatsApp no está habilitado: revisa WHATSAPP_HABILITADO y WHATSAPP_SECRET.",
-        )
-    return ClientePuente(settings)
+def crear_router(canal: CanalWhatsApp) -> APIRouter:
+    """Construye el router de WhatsApp para un canal ya configurado."""
+    router = APIRouter(prefix="/whatsapp", tags=["whatsapp"])
 
+    def autorizar_operador(request: Request) -> None:
+        """Protege la gesti?n del puente cuando hay token de operador configurado."""
+        if not canal.token_operador:
+            return
+        recibido = request.headers.get("x-canales-token") or request.query_params.get("token") or ""
+        if not secrets.compare_digest(recibido.encode("utf-8"), canal.token_operador.encode("utf-8")):
+            raise HTTPException(status_code=403, detail="Token de operador inv?lido.")
 
-@router.post("/mensaje", response_model=RespuestaWhatsApp)
-async def mensaje_entrante(request: Request, cuerpo: MensajeWhatsApp) -> RespuestaWhatsApp:
-    """Recibe un mensaje del puente, consulta al agente y devuelve el texto de respuesta."""
-    settings: Settings = request.app.state.settings
-    if not (settings.whatsapp_habilitado and settings.whatsapp_secret):
-        raise HTTPException(status_code=503, detail="El canal WhatsApp no está habilitado.")
+    def puente(request: Request) -> ClientePuente:
+        if not (canal.habilitado and canal.secreto):
+            raise HTTPException(
+                status_code=503,
+                detail="El canal WhatsApp no est? habilitado: revisa WHATSAPP_HABILITADO y WHATSAPP_SECRET.",
+            )
+        return ClientePuente(canal)
 
-    recibido = request.headers.get("x-whatsapp-secret", "")
-    if not secrets.compare_digest(
-        recibido.encode("utf-8"), settings.whatsapp_secret.encode("utf-8")
-    ):
-        raise HTTPException(status_code=403, detail="Secreto de WhatsApp inválido.")
+    @router.post("/mensaje", response_model=RespuestaWhatsApp)
+    async def mensaje_entrante(request: Request, cuerpo: MensajeWhatsApp) -> RespuestaWhatsApp:
+        """Recibe un mensaje del puente, consulta al agente y devuelve el texto de respuesta."""
+        if not (canal.habilitado and canal.secreto):
+            raise HTTPException(status_code=503, detail="El canal WhatsApp no est? habilitado.")
 
-    texto = cuerpo.mensaje.strip()
-    if texto.lower() in {"/start", "/help", "/ayuda"}:
-        return RespuestaWhatsApp(respuesta=MENSAJE_AYUDA, estado="ok")
+        recibido = request.headers.get("x-whatsapp-secret", "")
+        if not secrets.compare_digest(recibido.encode("utf-8"), canal.secreto.encode("utf-8")):
+            raise HTTPException(status_code=403, detail="Secreto de WhatsApp inv?lido.")
 
-    sesion = cuerpo.session_id or "wa-local"
-    try:
-        respuesta = await request.app.state.agente.consultar(texto, sesion)
-    except ErrorAgente as error:
-        logger.warning("WhatsApp: %s", error)
-        return RespuestaWhatsApp(
-            respuesta=_recortar(f"No pude responder la consulta: {error}", settings.whatsapp_max_caracteres),
-            estado="error",
-        )
-    except Exception:
-        logger.exception("WhatsApp: error inesperado")
-        return RespuestaWhatsApp(
-            respuesta="No pude procesar tu mensaje. Intenta nuevamente en un momento.",
-            estado="error",
-        )
+        texto = cuerpo.mensaje.strip()
+        if texto.lower() in {"/start", "/help", "/ayuda"}:
+            ayuda = canal.ayuda() if callable(canal.ayuda) else canal.ayuda
+            if ayuda:
+                return RespuestaWhatsApp(respuesta=ayuda, estado="ok")
 
-    return RespuestaWhatsApp(
-        respuesta=_recortar(respuesta, settings.whatsapp_max_caracteres), estado="ok"
-    )
+        responder: Responder = request.app.state.whatsapp_responder
+        try:
+            respuesta = await responder(texto, cuerpo.session_id or "wa-local")
+        except ErrorCanal as error:
+            logger.warning("WhatsApp: %s", error)
+            return RespuestaWhatsApp(
+                respuesta=_recortar(f"No pude responder la consulta: {error}", canal.max_caracteres),
+                estado="error",
+            )
+        except Exception:
+            logger.exception("WhatsApp: error inesperado")
+            return RespuestaWhatsApp(
+                respuesta="No pude procesar tu mensaje. Intenta nuevamente en un momento.",
+                estado="error",
+            )
 
+        return RespuestaWhatsApp(respuesta=_recortar(respuesta, canal.max_caracteres), estado="ok")
 
-@router.get("/estado")
-async def estado(request: Request, _: None = Depends(autorizar_operador)) -> dict:
-    return await _puente(request).estado()
+    @router.get("/estado")
+    async def estado(request: Request, _: None = Depends(autorizar_operador)) -> dict:
+        return await puente(request).estado()
 
+    @router.post("/conectar")
+    async def conectar(request: Request, _: None = Depends(autorizar_operador)) -> dict:
+        return await puente(request).conectar()
 
-@router.post("/conectar")
-async def conectar(request: Request, _: None = Depends(autorizar_operador)) -> dict:
-    return await _puente(request).conectar()
+    @router.post("/desconectar")
+    async def desconectar(request: Request, _: None = Depends(autorizar_operador)) -> dict:
+        return await puente(request).desconectar()
 
+    @router.post("/modo")
+    async def cambiar_modo(
+        request: Request, cuerpo: ModoVinculacion, _: None = Depends(autorizar_operador)
+    ) -> dict:
+        return await puente(request).modo(cuerpo.modo)
 
-@router.post("/desconectar")
-async def desconectar(request: Request, _: None = Depends(autorizar_operador)) -> dict:
-    return await _puente(request).desconectar()
+    @router.get("/codigo")
+    async def consultar_codigo(request: Request, _: None = Depends(autorizar_operador)) -> dict:
+        return await puente(request).codigo()
 
+    @router.post("/codigo")
+    async def solicitar_codigo(
+        request: Request, cuerpo: TelefonoVinculacion, _: None = Depends(autorizar_operador)
+    ) -> dict:
+        return await puente(request).codigo(cuerpo.telefono)
 
-@router.post("/modo")
-async def cambiar_modo(
-    request: Request, cuerpo: ModoVinculacion, _: None = Depends(autorizar_operador)
-) -> dict:
-    return await _puente(request).modo(cuerpo.modo)
+    @router.get("/qr")
+    async def consultar_qr(request: Request, _: None = Depends(autorizar_operador)) -> dict:
+        return await puente(request).qr()
 
+    @router.get("/qr.png", include_in_schema=False)
+    async def ver_qr(request: Request, _: None = Depends(autorizar_operador)) -> Response:
+        """Devuelve el QR como imagen para escanearlo desde el m?vil."""
+        datos = await puente(request).qr()
+        imagen = datos.get("imagen")
+        if not isinstance(imagen, str) or ";base64," not in imagen:
+            raise HTTPException(status_code=404, detail="Todav?a no hay un QR disponible.")
+        try:
+            contenido = base64.b64decode(imagen.split(";base64,", 1)[1])
+        except ValueError as error:
+            raise HTTPException(status_code=502, detail="El puente devolvi? un QR inv?lido.") from error
+        return Response(content=contenido, media_type="image/png", headers={"Cache-Control": "no-store"})
 
-@router.get("/codigo")
-async def consultar_codigo(request: Request, _: None = Depends(autorizar_operador)) -> dict:
-    return await _puente(request).codigo()
-
-
-@router.post("/codigo")
-async def solicitar_codigo(
-    request: Request, cuerpo: TelefonoVinculacion, _: None = Depends(autorizar_operador)
-) -> dict:
-    return await _puente(request).codigo(cuerpo.telefono)
-
-
-@router.get("/qr")
-async def consultar_qr(request: Request, _: None = Depends(autorizar_operador)) -> dict:
-    return await _puente(request).qr()
-
-
-@router.get("/qr.png", include_in_schema=False)
-async def ver_qr(request: Request, _: None = Depends(autorizar_operador)) -> Response:
-    """Devuelve el QR como imagen para escanearlo desde el móvil."""
-    datos = await _puente(request).qr()
-    imagen = datos.get("imagen")
-    if not isinstance(imagen, str) or ";base64," not in imagen:
-        raise HTTPException(status_code=404, detail="Todavía no hay un QR disponible.")
-    try:
-        contenido = base64.b64decode(imagen.split(";base64,", 1)[1])
-    except ValueError as error:
-        raise HTTPException(status_code=502, detail="El puente devolvió un QR inválido.") from error
-    return Response(content=contenido, media_type="image/png", headers={"Cache-Control": "no-store"})
+    return router

@@ -7,6 +7,10 @@ Todo por entorno, nada de secretos en el código. `URLS_AGENTES` acepta dos form
                   {"url": "https://agente-bryhan.example.com", "clave": ""}]
 
 La clave es la del agente: se envía en `X-Agente-Clave`. Un agente sin clave (público) puede omitirla.
+
+El canal de WhatsApp es opcional. `WHATSAPP_PUENTE=true` hace que este mismo proceso arranque el
+puente Node/Baileys (lo que ocurre en la app del coordinador en Heroku); en local el puente lo levanta
+`scripts/servidor_canales.py`.
 """
 from __future__ import annotations
 
@@ -19,6 +23,10 @@ from dotenv import load_dotenv
 
 class ConfiguracionInvalida(ValueError):
     """Falta un dato obligatorio o tiene un formato que no se puede usar."""
+
+
+MINIMO_SECRETO_WHATSAPP = 16
+"""El puente exige este mínimo: con menos, se niega a arrancar."""
 
 
 def _texto(nombre: str, defecto: str = "") -> str:
@@ -66,10 +74,22 @@ class Settings:
     telegram_secret: str = ""
     telegram_api_base: str = "https://api.telegram.org"
     saltos: bool = False
+    whatsapp_habilitado: bool = False
+    whatsapp_secret: str = ""
+    whatsapp_url_interna: str = "http://127.0.0.1:18082"
+    whatsapp_timeout: float = 20.0
+    whatsapp_max_caracteres: int = 3500
+    whatsapp_puente: bool = False
+    canales_token: str = ""
+    database_url: str = ""
 
     @property
     def canal_telegram(self) -> bool:
         return bool(self.telegram_token and self.telegram_secret)
+
+    @property
+    def canal_whatsapp(self) -> bool:
+        return bool(self.whatsapp_habilitado and len(self.whatsapp_secret) >= MINIMO_SECRETO_WHATSAPP)
 
 
 def _leer_agentes(crudo: str) -> list[AgenteConfigurado]:
@@ -111,6 +131,14 @@ def cargar_settings() -> Settings:
             "URLS_AGENTES está vacío: el coordinador necesita al menos un agente para elegir."
         )
 
+    secreto_whatsapp = _texto("WHATSAPP_SECRET")
+    whatsapp_habilitado = _booleano("WHATSAPP_HABILITADO", False)
+    if whatsapp_habilitado and len(secreto_whatsapp) < MINIMO_SECRETO_WHATSAPP:
+        raise ConfiguracionInvalida(
+            f"WHATSAPP_SECRET debe tener al menos {MINIMO_SECRETO_WHATSAPP} caracteres si el canal "
+            "de WhatsApp está habilitado."
+        )
+
     return Settings(
         host=_texto("COORDINADOR_HOST", "0.0.0.0"),
         port=_entero("PORT", _entero("COORDINADOR_PORT", 8120, 1, 65535), 1, 65535),
@@ -121,4 +149,12 @@ def cargar_settings() -> Settings:
         telegram_secret=_texto("TELEGRAM_SECRET"),
         telegram_api_base=_texto("TELEGRAM_API_BASE", "https://api.telegram.org").rstrip("/"),
         saltos=_booleano("SALTOS", False),
+        whatsapp_habilitado=whatsapp_habilitado,
+        whatsapp_secret=secreto_whatsapp,
+        whatsapp_url_interna=_texto("WHATSAPP_URL_INTERNA", "http://127.0.0.1:18082").rstrip("/"),
+        whatsapp_timeout=float(_entero("WHATSAPP_TIMEOUT", 20, 1, 120)),
+        whatsapp_max_caracteres=_entero("WHATSAPP_MAX_CARACTERES", 3500, 500, 4096),
+        whatsapp_puente=_booleano("WHATSAPP_PUENTE", False),
+        canales_token=_texto("CANALES_TOKEN"),
+        database_url=_texto("DATABASE_URL"),
     )

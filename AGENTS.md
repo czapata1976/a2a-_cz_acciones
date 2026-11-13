@@ -19,8 +19,8 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 | `tunel_cloudflare.ps1` / `.py` | Publica el puerto 2029 con un túnel temporal de Cloudflare. |
 | `tests/test_a2a_czz.py` | Tarjeta y envío A2A, simulando a otro agente. Compara el texto final con las cifras de las herramientas. Se saltan si el servidor no está arriba. |
 | `tests/test_datos_taller.py` | Precarga determinista de datos (ticker, mercado y bloque `<datos_herramientas>`), sin red. |
-| `canales/` | Servicio FastAPI que habla con el agente por A2A y atiende Telegram y WhatsApp. |
-| `whatsapp/` | Puente Node/Baileys (solo loopback) que entrega los mensajes propios al servicio de canales. |
+| `canales/` | Servicio FastAPI que habla con el agente por A2A y atiende Telegram y WhatsApp en local. El router de WhatsApp (`whatsapp.crear_router`) es una fábrica: en producción lo monta el coordinador con el supervisor como backend. |
+| `whatsapp/` | Puente Node/Baileys (solo loopback) que entrega los mensajes propios al canal. `src/session.mjs` guarda la sesión cifrada en Postgres (`czz_wa_sesion`) para sobrevivir al dyno. |
 | `scripts/servidor_canales.py` | Levanta la API de canales y, si está habilitado, el puente de WhatsApp. |
 | `scripts/configurar_telegram.py` · `scripts/telegram_polling.py` | Registran el webhook o escuchan por long polling. |
 | `tests/test_canales.py` | Secretos, sesión por chat y respuestas de los canales, sin salir a la red. |
@@ -33,7 +33,7 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 | `src/agente_acciones/tarjeta.py` | Ficha pública: qué hace, qué **no** hace, skills con etiquetas y ejemplos, y `URL_PUBLICA`. |
 | `src/agente_acciones/servidor.py` | Servidor A2A propio (FastAPI): ficha y `/salud` públicas, `message/send` con `X-Agente-Clave`, `MemorySaver` por `contextId`. |
 | `coordinador/` | Supervisor A2A: lee las fichas de `URLS_AGENTES`, elige **un** agente, cita cuál respondió y recuerda por cliente. |
-| `coordinador/main.py` · `canal.py` | `POST /chat` con `X-Coordinador-Clave` y `POST /telegram` con el secreto del bot. |
+| `coordinador/main.py` · `canal.py` | `POST /chat` con `X-Coordinador-Clave`, `POST /telegram` con el secreto del bot y `/whatsapp/*` con el del puente. |
 | `coordinador/supervisor.py` | Grafo `elegir → consultar → componer` con `MemorySaver`; no altera el texto del agente. |
 | `scripts/servidor_agente.py` · `servidor_coordinador.py` | Arranque local en 2029 y 8120. |
 | `scripts/probar_coordinador.py` · `verificar_entrega.py` | `--saltos` del supervisor y recorrido de los resultados esperados. |
@@ -62,6 +62,9 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
   instalar `a2a-sdk` en el entorno del servidor sube OpenTelemetry y `langgraph-api` deja de arrancar.
 - Canales: `npm install` para el puente WhatsApp y `.venv\Scripts\python.exe scripts\servidor_canales.py`
   para la API en el puerto 8100. Necesitan el agente arriba en el 2029.
+- WhatsApp en producción: la app del coordinador necesita el buildpack `heroku/nodejs` (antes de
+  `heroku/python`) para tener Node en el dyno; el puente lo levanta el propio coordinador con
+  `WHATSAPP_PUENTE=true` y `package.json` fija `node: 22.x`.
 - Chat web: `.venv\Scripts\python.exe scripts\servidor_web.py` en el puerto 8110. Exige `WEB_USUARIO`,
   `WEB_CLAVE_HASH` y `WEB_SECRETO` en `.env` (los genera `scripts\clave_web.py`).
 
@@ -78,13 +81,16 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 9. Esta copia no depende de `mi-agente-cz`: si se borra el original, el servicio sigue funcionando.
 10. Los canales son **clientes A2A**: no importan `src/agente_acciones`; consultan el agente por HTTP.
 11. El puente de WhatsApp escucha solo en `127.0.0.1`, exige `WHATSAPP_SECRET` y su sesión
-    (`whatsapp/.runtime/`) nunca se versiona ni se copia a otro proyecto.
+    (`whatsapp/.runtime/`) nunca se versiona ni se copia a otro proyecto. En producción vive dentro de
+    `coordinador-cz-acciones` (`WHATSAPP_PUENTE=true`) y su sesión se guarda cifrada en Postgres
+    (`czz_wa_sesion`, `WHATSAPP_SESION_DURABLE=true`): el disco del dyno es efímero.
 12. Las credenciales de canales viven en `.env`; `.env.example` solo lleva las claves vacías.
 13. El chat web también es **cliente A2A**: descubre por tarjeta, reutiliza `contextId` por conversación
     y nunca importa `src/agente_acciones`. Su equipo admite **hasta 4 agentes remotos**; el local sintetiza
     y recibe en cada turno la ficha del equipo (`<equipo_a2a>`) para reconocer a cada colega.
 15. La ficha y `/salud` del agente son públicas; `message/send` exige `AGENTE_CLAVE`. Sin clave configurada
-    el agente falla cerrado (rechaza todo). Lo mismo en el coordinador con `/chat` y `/telegram`.
+    el agente falla cerrado (rechaza todo). Lo mismo en el coordinador con `/chat`, `/telegram` y
+    `/whatsapp/mensaje`.
 16. El coordinador **no reescribe** lo que responde un agente: lo devuelve tal cual y dice quién respondió.
     El historial solo pesa cuando la pregunta depende del turno anterior (`es_seguimiento`).
 17. Memoria en proceso ⇒ **un solo worker** por app (`WEB_CONCURRENCY=1`). Reiniciar borra la memoria; es
@@ -111,7 +117,7 @@ mi-agente-czz/
 ├── AGENTS.md  plan.json  langgraph.json  pyproject.toml  package.json  requirements.txt  .env.example  README.md
 ├── src/agente_acciones/   graph.py  herramientas.py  prompts.py  tarjeta.py  servidor.py
 ├── coordinador/         main.py  config.py  supervisor.py  fichas.py  a2a.py  canal.py
-├── canales/             main.py  telegram.py  whatsapp.py  agente.py  config.py
+├── canales/             main.py  telegram.py  whatsapp.py  agente.py  config.py  puente.py  errores.py
 ├── web/                 main.py  config.py  auth.py  almacen.py  a2a.py  orquestador.py · static/
 ├── scripts/             servidor_agente.py · servidor_coordinador.py · probar_coordinador.py · verificar_entrega.py · heroku_web.py · servidor_canales.py · servidor_web.py · clave_web.py
 ├── Procfile · .python-version · .slugignore

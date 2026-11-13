@@ -1,12 +1,13 @@
-"""API del coordinador: `POST /chat` con clave, canal de Telegram y salud.
+"""API del coordinador: `POST /chat` con clave, canales de Telegram y WhatsApp, y salud.
 
 Arranque:
 
     .venv\\Scripts\\python.exe scripts\\servidor_coordinador.py
 
 Todo lo que entra (API o canal) pasa por el mismo supervisor: elige un agente, cita cuál respondió y
-conserva la memoria por cliente. Sin la clave del coordinador, `/chat` rechaza; sin el secreto, el
-endpoint de Telegram rechaza.
+conserva la memoria por cliente. Sin la clave del coordinador, `/chat` rechaza; sin el secreto, los
+endpoints de Telegram y WhatsApp rechazan. Con `WHATSAPP_PUENTE=true` este proceso arranca además el
+puente Node/Baileys en loopback (es lo que hace la app del coordinador en Heroku).
 """
 from __future__ import annotations
 
@@ -19,10 +20,12 @@ from fastapi import BackgroundTasks, FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from canales import puente as puente_whatsapp
+from canales.whatsapp import CanalWhatsApp, crear_router
 from coordinador import canal
 from coordinador.config import Settings, cargar_settings
 from coordinador.fichas import Ficha, leer_fichas
-from coordinador.supervisor import NO_LEIBLE, Supervisor
+from coordinador.supervisor import NO_LEIBLE, SALUDO, Supervisor, lista_agentes
 
 logger = logging.getLogger("coordinador.api")
 
@@ -57,10 +60,46 @@ def crear_app(
             len(app.state.fichas),
             ", ".join(f.nombre for f in app.state.fichas) or "ninguno",
         )
-        yield
+        proceso = None
+        if settings.canal_whatsapp and settings.whatsapp_puente:
+            proceso = puente_whatsapp.arrancar(
+                secreto=settings.whatsapp_secret,
+                url_interna=settings.whatsapp_url_interna,
+                backend_url=f"http://127.0.0.1:{settings.port}/whatsapp/mensaje",
+                timeout_s=settings.timeout_agente,
+                database_url=settings.database_url,
+            )
+        app.state.puente_whatsapp = proceso
+        try:
+            yield
+        finally:
+            puente_whatsapp.detener(proceso)
 
     app = FastAPI(title="Coordinador A2A del equipo", version="1.0.0", docs_url=None, redoc_url=None,
                   lifespan=ciclo)
+
+    async def responder_whatsapp(texto: str, sesion: str) -> str:
+        """Un mensaje de WhatsApp entra por el mismo camino que uno de Telegram."""
+        await refrescar_si_hace_falta(app)
+        resultado = await app.state.supervisor.responder(f"whatsapp:{sesion}", texto)
+        return resultado.respuesta
+
+    app.state.whatsapp_responder = responder_whatsapp
+    app.include_router(
+        crear_router(
+            CanalWhatsApp(
+                habilitado=settings.canal_whatsapp,
+                secreto=settings.whatsapp_secret,
+                url_interna=settings.whatsapp_url_interna,
+                timeout=settings.whatsapp_timeout,
+                max_caracteres=settings.whatsapp_max_caracteres,
+                token_operador=settings.canales_token,
+                ayuda=lambda: SALUDO.format(
+                    agentes=lista_agentes(getattr(app.state, "fichas", None) or [])
+                ),
+            )
+        )
+    )
 
     @app.middleware("http")
     async def utf8(request: Request, llamar):
@@ -164,6 +203,7 @@ def crear_app(
                 resultado = None
                 respuesta = NO_LEIBLE
             else:
+                await refrescar_si_hace_falta(app)
                 resultado = await app.state.supervisor.responder(f"telegram:{chat_id}", texto)
                 respuesta = resultado.respuesta
             if resultado and settings.saltos:
@@ -200,6 +240,7 @@ def crear_app(
     @app.get("/salud")
     async def salud() -> dict:
         fichas_actuales = getattr(app.state, "fichas", []) or []
+        proceso = getattr(app.state, "puente_whatsapp", None)
         return {
             "ok": True,
             "coordinador": "disponible",
@@ -207,6 +248,11 @@ def crear_app(
                 {"nombre": f.nombre or f.url, "estado": f.estado} for f in fichas_actuales
             ],
             "canal_telegram": settings.canal_telegram,
+            "canal_whatsapp": settings.canal_whatsapp,
+            "puente_whatsapp": {
+                "propio": settings.whatsapp_puente,
+                "activo": bool(proceso and proceso.poll() is None),
+            },
             "memoria": "MemorySaver en proceso, un hilo por cliente (se pierde al reiniciar)",
         }
 
@@ -219,7 +265,7 @@ def crear_app(
         return {
             "servicio": "Coordinador A2A del equipo",
             "chat": "POST /chat con la cabecera X-Coordinador-Clave",
-            "canal": "POST /telegram con el secreto de Telegram",
+            "canal": "POST /telegram con el secreto de Telegram; POST /whatsapp/mensaje con el de WhatsApp",
             "salud": "GET /salud",
             "agentes": "GET /agentes",
         }

@@ -1,8 +1,9 @@
 """Lectura de las fichas A2A y elección del agente que sabe.
 
 El coordinador no adivina: lee `/.well-known/agent-card.json` de cada agente de `URLS_AGENTES` y puntúa
-la pregunta contra el nombre, la descripción, las skills, sus etiquetas y sus ejemplos. Si nadie alcanza
-puntuación, responde que no tiene un agente para eso.
+la pregunta contra el nombre, la descripción, las skills, sus etiquetas y sus ejemplos. Nombrar al agente
+(«¿qué hace Bryhan?») pesa más que cualquier palabra de su ficha. Si nadie alcanza puntuación, responde
+que no tiene un agente para eso.
 """
 from __future__ import annotations
 
@@ -86,6 +87,40 @@ def _coinciden(una: str, otra: str) -> bool:
     return comunes >= 6 and comunes >= corto - 2
 
 
+NOMBRE = 6
+"""Puntos por nombrar al agente en la pregunta.
+
+«¿Qué hace Bryhan?» no trae ninguna palabra de la ficha, solo el nombre: con el peso normal del nombre
+(3) se quedaba por debajo del mínimo y el coordinador contestaba que no tenía un agente para eso. Nombrar
+a alguien del equipo es la señal más fuerte que hay y basta por sí sola para elegirlo.
+"""
+
+
+def _casi_igual(una: str, otra: str) -> bool:
+    """El mismo nombre con una letra de diferencia («bryan»/«bryhan»)."""
+    if una == otra:
+        return True
+    corta, larga = sorted((una, otra), key=len)
+    if len(corta) < 5 or len(larga) - len(corta) > 1:
+        return False
+    i = 0
+    while i < len(corta) and corta[i] == larga[i]:
+        i += 1
+    if len(corta) == len(larga):
+        return corta[i + 1:] == larga[i + 1:]
+    return corta[i:] == larga[i + 1:]
+
+
+def _nombres_propios(fichas: list[Ficha]) -> dict[str, set[str]]:
+    """Palabras del nombre que identifican a **un** agente: el prefijo «agente» no distingue a nadie."""
+    por_url = {ficha.url: {_raiz(palabra) for palabra in normalizar(ficha.nombre)} for ficha in fichas}
+    vistos: dict[str, int] = {}
+    for palabras in por_url.values():
+        for palabra in palabras:
+            vistos[palabra] = vistos.get(palabra, 0) + 1
+    return {url: {p for p in palabras if vistos[p] == 1} for url, palabras in por_url.items()}
+
+
 def _palabras_de(ficha: Ficha) -> dict[str, int]:
     """Bolsa de raíces ponderada de la ficha."""
     bolsa: dict[str, int] = {}
@@ -107,6 +142,7 @@ def _palabras_de(ficha: Ficha) -> dict[str, int]:
 def puntuar(fichas: list[Ficha], texto: str) -> list[tuple[Ficha, int]]:
     """Ordena las fichas por afinidad con el texto de la pregunta."""
     consulta = {_raiz(palabra) for palabra in normalizar(texto)}
+    propios = _nombres_propios(fichas)
     ranking: list[tuple[Ficha, int]] = []
     for ficha in fichas:
         if ficha.estado != "disponible":
@@ -117,6 +153,12 @@ def puntuar(fichas: list[Ficha], texto: str) -> list[tuple[Ficha, int]]:
             for palabra, peso in bolsa.items()
             if any(_coinciden(palabra, buscada) for buscada in consulta)
         )
+        if any(
+            _coinciden(nombre, buscada) or _casi_igual(nombre, buscada)
+            for nombre in propios.get(ficha.url, set())
+            for buscada in consulta
+        ):
+            puntos += NOMBRE
         ranking.append((ficha, puntos))
     ranking.sort(key=lambda par: par[1], reverse=True)
     return ranking

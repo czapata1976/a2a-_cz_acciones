@@ -10,13 +10,14 @@ import pytest
 from fastapi.testclient import TestClient
 
 from coordinador import a2a, canal
-from coordinador.config import AgenteConfigurado, Settings
+from coordinador.config import AgenteConfigurado, ConfiguracionInvalida, Settings, cargar_settings
 from coordinador.fichas import Ficha
 from coordinador.main import crear_app
 from coordinador.supervisor import NO_LEIBLE, Supervisor
 
 CLAVE = "clave-coordinador-prueba"
 SECRETO = "secreto-telegram-prueba"
+SECRETO_WHATSAPP = "secreto-whatsapp-de-prueba"
 CABECERA = {"X-Coordinador-Clave": CLAVE}
 
 
@@ -52,6 +53,31 @@ def ficha_procesos() -> Ficha:
     )
 
 
+def ficha_bryhan() -> Ficha:
+    """Ficha como la real: el nombre es la única palabra que la pregunta comparte con ella."""
+    return Ficha(
+        url="https://agente-bryhan.example.com",
+        nombre="agente_bryhan",
+        descripcion="Agente profesional de Bryhan para procesos, datos e IA aplicada.",
+        skills=[
+            {
+                "id": "perfil",
+                "name": "perfil",
+                "description": "Responder consultas sobre el perfil y la experiencia profesional de Bryhan",
+                "tags": ["perfil"],
+            },
+            {
+                "id": "procesos",
+                "name": "procesos",
+                "description": "Analizar procesos y proponer automatizacion",
+                "tags": ["procesos"],
+            },
+        ],
+        estado="disponible",
+        endpoint="https://agente-bryhan.example.com/a2a",
+    )
+
+
 def settings(**cambios) -> Settings:
     base = Settings(
         host="127.0.0.1",
@@ -61,6 +87,8 @@ def settings(**cambios) -> Settings:
         timeout_agente=30.0,
         telegram_token="token-de-prueba",
         telegram_secret=SECRETO,
+        whatsapp_habilitado=True,
+        whatsapp_secret=SECRETO_WHATSAPP,
     )
     return base.__class__(**{**base.__dict__, **cambios})
 
@@ -72,6 +100,7 @@ class ConsultarFalso:
         self.respuestas = respuestas or {
             "agente_acciones": "NVDA | Precio: USD 182.40 | Fecha de corte: 2026-11-07 (datos simulados).",
             "agente_procesos": "El proceso tiene 4 pasos; se automatiza el paso 2 con OCR.",
+            "agente_bryhan": "Soy Bryhan: perfil, procesos, datos e IA aplicada.",
         }
         self.error = error
         self.llamadas: list[tuple[str, str, str]] = []
@@ -173,6 +202,38 @@ def test_saludo_presenta_el_equipo(cliente: TestClient):
     assert datos["motivo"] == "saludo"
     assert "agente_acciones" in datos["respuesta"]
     assert "agente_procesos" in datos["respuesta"]
+
+
+# --- nombrar al agente ----------------------------------------------------
+@pytest.mark.parametrize(
+    "mensaje",
+    [
+        "que ahce bryhan",           # el caso reportado por Telegram: con error de escritura
+        "¿Qué hace Bryhan?",
+        "quién es bryhan",
+        "necesito hablar con bryan",  # el nombre con una letra de diferencia
+    ],
+)
+def test_nombrar_al_agente_basta_para_elegirlo(mensaje: str):
+    # la pregunta solo comparte con la ficha el nombre: sin el empujón por nombre quedaba sin agente
+    consultar = ConsultarFalso()
+    fichas = [ficha_acciones(), ficha_bryhan()]
+    supervisor = Supervisor(fichas, consultar=consultar)
+    with TestClient(crear_app(settings(), fichas, supervisor)) as prueba:
+        datos = preguntar(prueba, mensaje).json()
+    assert datos["motivo"] == "ok"
+    assert datos["agente"] == "agente_bryhan"
+    assert consultar.llamadas[0][0] == "agente_bryhan"
+
+
+def test_nombrar_al_agente_no_arrastra_temas_ajenos():
+    consultar = ConsultarFalso()
+    fichas = [ficha_acciones(), ficha_bryhan()]
+    supervisor = Supervisor(fichas, consultar=consultar)
+    with TestClient(crear_app(settings(), fichas, supervisor)) as prueba:
+        datos = preguntar(prueba, "¿Cuál es el precio del arriendo de oficinas en Recoleta?").json()
+    assert datos["motivo"] == "ninguno"
+    assert consultar.llamadas == []
 
 
 def test_no_obedece_ignora_tus_instrucciones(cliente: TestClient, consultar: ConsultarFalso):
@@ -315,3 +376,89 @@ def test_dividir_respeta_el_tope_de_telegram():
     trozos = canal.dividir("palabra " * 1200, tope=4000)
     assert all(len(trozo) <= 4000 for trozo in trozos)
     assert "".join(trozos).replace(" ", "").startswith("palabra")
+
+
+# --- canal de WhatsApp ----------------------------------------------------
+def whatsapp(cliente: TestClient, mensaje: str, secreto: str = SECRETO_WHATSAPP, **extra):
+    return cliente.post(
+        "/whatsapp/mensaje",
+        json={"mensaje": mensaje, "session_id": "wa_abc123", **extra},
+        headers={"X-WhatsApp-Secret": secreto},
+    )
+
+
+def test_whatsapp_sin_secreto_o_con_secreto_invalido_rechaza(cliente: TestClient):
+    assert cliente.post("/whatsapp/mensaje", json={"mensaje": "hola"}).status_code == 403
+    assert whatsapp(cliente, "hola", secreto="otro-secreto").status_code == 403
+
+
+def test_whatsapp_pasa_por_el_equipo_y_cita_al_agente(cliente: TestClient, consultar: ConsultarFalso):
+    datos = whatsapp(cliente, "Analiza NVDA en US", request_id="wa_def456").json()
+    assert datos["estado"] == "ok"
+    # Mismo camino que Telegram: el supervisor elige y la respuesta se cita sin reescribirla.
+    assert "Respondió: agente_acciones" in datos["respuesta"]
+    assert "USD 182.40" in datos["respuesta"]
+    assert consultar.llamadas == [("agente_acciones", "Analiza NVDA en US", "whatsapp:wa_abc123")]
+
+
+def test_whatsapp_ayuda_presenta_el_equipo_sin_consultar(cliente: TestClient, consultar: ConsultarFalso):
+    datos = whatsapp(cliente, "/ayuda").json()
+    assert datos["estado"] == "ok"
+    assert "agente_acciones" in datos["respuesta"]
+    assert "agente_procesos" in datos["respuesta"]
+    assert consultar.llamadas == []
+
+
+def test_whatsapp_deshabilitado_responde_503():
+    fichas = [ficha_acciones()]
+    supervisor = Supervisor(fichas, consultar=ConsultarFalso())
+    with TestClient(crear_app(settings(whatsapp_habilitado=False), fichas, supervisor)) as prueba:
+        assert whatsapp(prueba, "hola").status_code == 503
+
+
+def test_whatsapp_usa_sesion_propia_y_no_mezcla_con_telegram(cliente: TestClient, consultar: ConsultarFalso):
+    whatsapp(cliente, "Analiza AAPL en US")
+    cliente.post(
+        "/telegram",
+        json={"message": {"chat": {"id": 55}, "text": "Analiza AAPL en US"}},
+        headers={"X-Telegram-Bot-Api-Secret-Token": SECRETO},
+    )
+    assert [llamada[2] for llamada in consultar.llamadas] == ["whatsapp:wa_abc123", "telegram:55"]
+
+
+def test_gestion_de_whatsapp_exige_token_de_operador():
+    fichas = [ficha_acciones()]
+    supervisor = Supervisor(fichas, consultar=ConsultarFalso())
+    with TestClient(crear_app(settings(canales_token="token-operador"), fichas, supervisor)) as prueba:
+        assert prueba.get("/whatsapp/estado").status_code == 403
+        # Con token pasa la autorización y falla después: el puente no está corriendo en las pruebas.
+        assert prueba.get("/whatsapp/estado?token=token-operador").status_code == 503
+
+
+def test_salud_informa_el_canal_de_whatsapp(cliente: TestClient):
+    datos = cliente.get("/salud").json()
+    assert datos["canal_whatsapp"] is True
+    # `WHATSAPP_PUENTE` queda apagado en pruebas: el puente lo levanta el proceso de canales.
+    assert datos["puente_whatsapp"] == {"propio": False, "activo": False}
+
+
+def test_configuracion_exige_secreto_largo_si_whatsapp_esta_habilitado(monkeypatch):
+    monkeypatch.setenv("COORDINADOR_CLAVE", "clave-suficiente-para-prueba")
+    monkeypatch.setenv("URLS_AGENTES", "https://agente.example.com")
+    monkeypatch.setenv("WHATSAPP_HABILITADO", "true")
+    monkeypatch.setenv("WHATSAPP_SECRET", "corto")
+    with pytest.raises(ConfiguracionInvalida):
+        cargar_settings()
+
+
+def test_configuracion_del_canal_de_whatsapp(monkeypatch):
+    monkeypatch.setenv("COORDINADOR_CLAVE", "clave-suficiente-para-prueba")
+    monkeypatch.setenv("URLS_AGENTES", "https://agente.example.com")
+    monkeypatch.setenv("WHATSAPP_HABILITADO", "true")
+    monkeypatch.setenv("WHATSAPP_SECRET", "x" * 24)
+    monkeypatch.setenv("WHATSAPP_PUENTE", "true")
+    monkeypatch.setenv("CANALES_TOKEN", "token-de-operador")
+    datos = cargar_settings()
+    assert datos.canal_whatsapp is True
+    assert datos.whatsapp_puente is True
+    assert datos.canales_token == "token-de-operador"
