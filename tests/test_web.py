@@ -65,9 +65,11 @@ def entrar(cliente: TestClient) -> TestClient:
 def agente(base: str) -> a2a.Agente:
     return a2a.Agente(
         base=base,
-        nombre=f"agente-{base.rsplit(':', 1)[-1]}",
+        nombre=f"agente-{base.split('//')[-1]}",
         url_a2a=f"{base}/a2a/00000000-0000-0000-0000-000000000000",
         assistant_id="00000000-0000-0000-0000-000000000000",
+        descripcion="revisa procesos y diseño de datos",
+        habilidades=("evaluar procesos: ordena y prioriza el flujo [procesos]",),
     )
 
 
@@ -224,6 +226,36 @@ def test_url_pegada_con_endpoint_respeta_la_ruta_del_usuario():
         "https://host.example.com/a2a/otro-id"
 
 
+def test_url_de_la_ficha_se_trata_como_raiz():
+    # Pegar la tarjeta (`/.well-known/agent-card.json`) no debe convertirse en el endpoint.
+    anunciado = a2a.Agente(
+        base="https://host.example.com", nombre="remoto",
+        url_a2a="https://host.example.com/a2a/abc", assistant_id=None,
+    )
+    ruta = a2a.ruta_de_usuario("https://host.example.com/.well-known/agent-card.json")
+    assert a2a._con_ruta(anunciado, "https://host.example.com", ruta).url_a2a == \
+        "https://host.example.com/a2a/abc"
+
+
+def test_tarjeta_aporta_descripcion_y_habilidades():
+    tarjeta = {
+        "name": "agente_bryhan",
+        "description": "perfil, procesos y diseño de datos",
+        "url": "https://agente.example.run.app/a2a",
+        "skills": [
+            {"name": "Evaluar procesos", "description": "ordena y prioriza flujos", "tags": ["procesos"]},
+            {"name": "Comparar IA", "description": "compara modelos y herramientas"},
+            "no-es-un-objeto",
+        ],
+    }
+    agente_remoto = a2a._agente_de_tarjeta(tarjeta, "https://agente.example.run.app", None)
+    assert agente_remoto.descripcion.startswith("perfil, procesos")
+    assert agente_remoto.habilidades == (
+        "Evaluar procesos: ordena y prioriza flujos [procesos]",
+        "Comparar IA: compara modelos y herramientas",
+    )
+
+
 def test_equipo_tope_de_cuatro(cliente: TestClient, sin_red):
     entrar(cliente)
     for numero in range(4):
@@ -299,6 +331,40 @@ def test_turno_consulta_remotos_y_sintetiza(cliente: TestClient, sin_red):
     assert "<respuestas_agentes>" in peticion_local
     assert "aporte de https://uno.example.com" in peticion_local
     assert "aporte de https://dos.example.com" in peticion_local
+
+    # y la ficha del equipo va en cada turno, para que reconozca a los agentes agregados
+    assert "<equipo_a2a>" in peticion_local
+    assert "agente-uno.example.com: revisa procesos" in peticion_local
+    assert "evaluar procesos: ordena y prioriza el flujo [procesos]" in peticion_local
+
+
+def test_el_equipo_es_dato_aunque_los_remotos_fallen(cliente: TestClient, monkeypatch):
+    """El agente local conoce a sus colegas por la tarjeta, respondan o no en ese turno."""
+    entrar(cliente)
+    llamadas: list[str] = []
+
+    async def descubrir(base: str, timeout: float = 15.0, clave: str = '') -> a2a.Agente:
+        return agente(base)
+
+    async def enviar(instancia: a2a.Agente, texto: str, context_id: str, timeout: float = 180.0) -> str:
+        if instancia.base == LOCAL:
+            llamadas.append(texto)
+            return "no tengo un agente para eso, pero mi equipo sí: agente-uno.example.com"
+        raise a2a.ErrorAgenteRemoto("sin respuesta")
+
+    monkeypatch.setattr(a2a, "descubrir", descubrir)
+    monkeypatch.setattr(a2a, "enviar", enviar)
+    cliente.post("/api/agentes", json={"url": "https://uno.example.com"}, headers=CABECERAS)
+    charla = cliente.post("/api/charlas", headers=CABECERAS).json()["id"]
+
+    respuesta = cliente.post(
+        f"/api/charlas/{charla}/mensaje", json={"texto": "¿Qué hace el agente uno?"}, headers=CABECERAS
+    )
+    assert respuesta.status_code == 200, respuesta.text
+    assert llamadas, "el agente local debe recibir el turno"
+    assert "<equipo_a2a>" in llamadas[-1]
+    assert "agente-uno.example.com" in llamadas[-1]
+    assert "<respuestas_agentes>" not in llamadas[-1]
 
 
 def test_turno_guarda_conversacion(cliente: TestClient, sin_red):

@@ -32,6 +32,7 @@ class Agente:
     assistant_id: str | None
     descripcion: str = ""
     clave: str = ""
+    habilidades: tuple[str, ...] = ()
 
 
 def normalizar_url(url: str) -> str:
@@ -49,6 +50,16 @@ def normalizar_url(url: str) -> str:
     return urlunsplit((partes.scheme, partes.netloc, partes.path.rstrip("/"), "", ""))
 
 
+def ruta_de_usuario(url: str) -> str:
+    """Ruta que escribió el usuario, o vacía si pegó la raíz o la propia ficha.
+
+    Sirve para respetar `https://host/a2a/<uuid>` sin convertir `…/.well-known/agent-card.json`
+    (la ficha, que también se comparte) en el endpoint de mensajes.
+    """
+    ruta = urlsplit(url).path.rstrip("/")
+    return "" if ruta.endswith(RUTA_TARJETA) else ruta
+
+
 def _url_reenviada(base: str, url_tarjeta: str) -> str:
     """Usa el host y el esquema con que entró el usuario, y la ruta que anuncia la tarjeta.
 
@@ -59,6 +70,23 @@ def _url_reenviada(base: str, url_tarjeta: str) -> str:
     anfitrion = urlsplit(base)
     anunciada = urlsplit(url_tarjeta)
     return urlunsplit((anfitrion.scheme, anfitrion.netloc, anunciada.path or "/", anunciada.query, ""))
+
+
+def _habilidades_de_tarjeta(datos: dict) -> tuple[str, ...]:
+    """Skills de la ficha (nombre, para qué sirve y etiquetas), en una línea cada una."""
+    habilidades: list[str] = []
+    for habilidad in datos.get("skills") or []:
+        if not isinstance(habilidad, dict):
+            continue
+        nombre = str(habilidad.get("name") or "").strip()
+        descripcion = str(habilidad.get("description") or "").strip()
+        etiquetas = [str(etiqueta).strip() for etiqueta in (habilidad.get("tags") or []) if str(etiqueta).strip()]
+        texto = ": ".join(parte for parte in (nombre, descripcion) if parte)
+        if etiquetas:
+            texto = f"{texto} [{', '.join(etiquetas)}]" if texto else f"[{', '.join(etiquetas)}]"
+        if texto:
+            habilidades.append(texto)
+    return tuple(habilidades)
 
 
 def _agente_de_tarjeta(datos: object, base: str, assistant_id: str | None, clave: str = "") -> Agente:
@@ -82,6 +110,7 @@ def _agente_de_tarjeta(datos: object, base: str, assistant_id: str | None, clave
         assistant_id=assistant_id,
         descripcion=str(datos.get("description") or ""),
         clave=clave,
+        habilidades=_habilidades_de_tarjeta(datos),
     )
 
 
@@ -95,7 +124,7 @@ async def descubrir(base: str, timeout: float = 15.0, clave: str = "") -> Agente
     objetivo = normalizar_url(base)
     partes = urlsplit(objetivo)
     raiz = urlunsplit((partes.scheme, partes.netloc, "", "", ""))
-    ruta_usuario = partes.path.rstrip("/")
+    ruta_usuario = ruta_de_usuario(objetivo)
     try:
         async with httpx.AsyncClient(timeout=timeout, trust_env=False, follow_redirects=True) as cliente:
             try:
@@ -142,6 +171,7 @@ def _con_ruta(agente: Agente, raiz: str, ruta_usuario: str) -> Agente:
         assistant_id=agente.assistant_id,
         descripcion=agente.descripcion,
         clave=agente.clave,
+        habilidades=agente.habilidades,
     )
 
 
