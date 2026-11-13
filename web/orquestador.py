@@ -108,6 +108,8 @@ def mensaje_de_sintesis(
         "análisis y mantén tu formato y la fecha de corte de los datos.\n"
         "- Si pregunta quién forma el equipo o qué hace un agente, respóndelo con el bloque "
         "`<equipo_a2a>` (nombre y especialidad) y apóyate en el aporte de ese agente si lo hay.\n"
+        "- Si menciona a un agente del equipo con otra grafía o con una errata (por ejemplo «bryan» por "
+        "«bryhan»), entiende que habla de ese agente del equipo.\n"
         "- Si nombra a alguien que no está en `<equipo_a2a>`, di que ese agente no está en el equipo."
     )
     return "\n".join(bloques)
