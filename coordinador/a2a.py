@@ -16,26 +16,34 @@ class ErrorAgente(RuntimeError):
 
 
 def _texto_de(resultado: dict) -> str:
-    """Artefactos primero; si no hay, el último turno del agente en el historial."""
-    partes = [
-        parte["text"]
-        for artefacto in resultado.get("artifacts") or []
-        for parte in artefacto.get("parts", [])
-        if isinstance(parte, dict) and isinstance(parte.get("text"), str)
-    ]
-    partes = [p.strip() for p in partes if p.strip()]
-    if not partes:
-        for turno in reversed(resultado.get("history") or []):
-            if not isinstance(turno, dict) or str(turno.get("role", "")).lower() not in {"agent", "assistant"}:
-                continue
-            partes = [
-                p["text"].strip()
-                for p in turno.get("parts", [])
-                if isinstance(p, dict) and isinstance(p.get("text"), str) and p["text"].strip()
-            ]
-            if partes:
-                break
-    return "\n".join(partes)
+    """Artefactos, `status.message` o el último turno del agente en el historial.
+
+    Hay servidores que devuelven el texto solo en `status.message` (A2A 0.3.0) y otros en artefactos.
+    """
+    estado = resultado.get("status") or {}
+    candidatos = [resultado.get("artifacts") or [], [estado.get("message") or {}]]
+    for grupo in candidatos:
+        partes = [
+            parte["text"]
+            for objeto in grupo
+            if isinstance(objeto, dict)
+            for parte in objeto.get("parts", [])
+            if isinstance(parte, dict) and isinstance(parte.get("text"), str)
+        ]
+        partes = [p.strip() for p in partes if p.strip()]
+        if partes:
+            return "\n".join(partes)
+    for turno in reversed(resultado.get("history") or []):
+        if not isinstance(turno, dict) or str(turno.get("role", "")).lower() not in {"agent", "assistant"}:
+            continue
+        partes = [
+            p["text"].strip()
+            for p in turno.get("parts", [])
+            if isinstance(p, dict) and isinstance(p.get("text"), str) and p["text"].strip()
+        ]
+        if partes:
+            return "\n".join(partes)
+    return ""
 
 
 async def consultar(ficha: Ficha, texto: str, conversacion: str, timeout: float = 60.0) -> str:

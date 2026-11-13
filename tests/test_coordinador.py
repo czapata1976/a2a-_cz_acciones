@@ -224,6 +224,24 @@ def test_el_hilo_es_el_identificador_de_conversacion(consultar: ConsultarFalso):
     assert consultar.llamadas[0][2] == "cliente-x"
 
 
+def test_lee_el_texto_de_status_message():
+    # servidores A2A 0.3.0 devuelven el texto en status.message, sin artefactos
+    resultado = {
+        "kind": "task",
+        "status": {"state": "completed", "message": {"role": "agent", "parts": [{"kind": "text", "text": "hola"}]}},
+        "artifacts": [],
+    }
+    assert a2a._texto_de(resultado) == "hola"
+
+
+def test_prefiere_artefactos_sobre_status():
+    resultado = {
+        "status": {"state": "completed", "message": {"parts": [{"kind": "text", "text": "resumen"}]}},
+        "artifacts": [{"parts": [{"kind": "text", "text": "texto completo"}]}],
+    }
+    assert a2a._texto_de(resultado) == "texto completo"
+
+
 # --- agente caído ---------------------------------------------------------
 def test_agente_caido_avisa_y_el_resto_sigue():
     consultar = ConsultarFalso(error=a2a.ErrorAgente("agente_acciones no respondió en 30 s."))
