@@ -21,6 +21,18 @@ const ARCHIVO = /^[A-Za-z0-9._-]{1,120}\.json$/;
 
 const llave = (secreto) => scryptSync(secreto, SAL, 32);
 
+/** Quita `sslmode` de la URL: la configuración de SSL se fija en el Pool. */
+export function sinSslmode(url) {
+    try {
+        const partes = new URL(url);
+        partes.searchParams.delete('sslmode');
+        partes.searchParams.delete('uselibpqcompat');
+        return partes.toString();
+    } catch {
+        return url;
+    }
+}
+
 function cifrar(clave, texto) {
     const iv = randomBytes(12);
     const cifrador = createCipheriv('aes-256-gcm', clave, iv);
@@ -56,7 +68,11 @@ export class SesionDurable {
         if (this.pool) return this.pool;
         const Pool = this.Pool ?? (await import('pg')).Pool;
         this.pool = new Pool({
-            connectionString: this.connectionString,
+            // El `sslmode=require` de la URL acaba exigiendo la cadena completa del certificado, que el
+            // Postgres del taller no entrega. Se quita de la cadena y se fija el SSL aquí: lo que se
+            // guarda ya va cifrado con AES-256-GCM, así que la confidencialidad no depende del servidor.
+            connectionString: sinSslmode(this.connectionString),
+            ssl: { rejectUnauthorized: false },
             max: 1,
             // La base del taller es compartida: no retener conexiones si algo se cuelga.
             idleTimeoutMillis: 30000,

@@ -4,7 +4,7 @@ import { mkdtemp, readdir, readFile, writeFile, mkdir, rm } from 'node:fs/promis
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SesionDurable, TABLA } from '../src/session.mjs';
+import { SesionDurable, TABLA, sinSslmode } from '../src/session.mjs';
 
 const SECRETO = 'secreto-de-prueba-para-la-sesion';
 const LOGGER = { info() {}, warn() {} };
@@ -123,4 +123,18 @@ test('borra de Postgres los archivos que ya no existen', async () => {
 
 test('la tabla vive en el prefijo czz_ del Postgres compartido', () => {
   assert.equal(TABLA, 'czz_wa_sesion');
+});
+
+test('quita sslmode de la URL: el SSL se fija en el Pool', () => {
+  // El Postgres del taller no entrega la cadena del certificado: `sslmode=require` haría fallar
+  // cualquier conexión. Se elimina de la cadena y el Pool usa `rejectUnauthorized: false`.
+  assert.equal(
+    sinSslmode('postgres://u:p@10.0.0.1:5432/db?sslmode=require'),
+    'postgres://u:p@10.0.0.1:5432/db',
+  );
+  assert.equal(
+    sinSslmode('postgres://u:p@host/db?sslmode=require&uselibpqcompat=true'),
+    'postgres://u:p@host/db',
+  );
+  assert.equal(sinSslmode('no-es-una-url'), 'no-es-una-url');
 });
