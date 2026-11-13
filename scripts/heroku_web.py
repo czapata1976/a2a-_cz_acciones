@@ -45,11 +45,15 @@ def main() -> int:
     import uvicorn
 
     logger.info("Rol=%s en 0.0.0.0:%s", rol, puerto)
+    # La memoria por conversación vive en el proceso (MemorySaver). Con varios workers, dos peticiones
+    # del mismo cliente pueden caer en procesos distintos y la conversación «olvidaría» sus turnos.
+    logger.info("Workers: 1 (la memoria en proceso exige un solo proceso)")
     uvicorn.run(
         APPS[rol],
         factory=True,
         host="0.0.0.0",
         port=puerto,
+        workers=1,
         access_log=False,
         server_header=False,
         proxy_headers=True,
