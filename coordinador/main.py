@@ -62,6 +62,15 @@ def crear_app(
     app = FastAPI(title="Coordinador A2A del equipo", version="1.0.0", docs_url=None, redoc_url=None,
                   lifespan=ciclo)
 
+    @app.middleware("http")
+    async def utf8(request: Request, llamar):
+        """Declara `charset=utf-8` en el JSON: sin eso, PowerShell y otros clientes lo leen como latin-1."""
+        respuesta = await llamar(request)
+        tipo = respuesta.headers.get("content-type", "")
+        if tipo.startswith("application/json") and "charset" not in tipo:
+            respuesta.headers["content-type"] = f"{tipo}; charset=utf-8"
+        return respuesta
+
     def clave_valida(request: Request) -> bool:
         recibida = (request.headers.get("x-coordinador-clave") or "").strip()
         if not recibida:

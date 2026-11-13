@@ -118,10 +118,13 @@ def test_telegram_sin_secreto_rechaza(cliente: TestClient):
 
 
 def test_salud_y_agentes_son_publicos(cliente: TestClient):
-    salud = cliente.get("/salud").json()
-    assert salud["ok"] is True
-    assert salud["canal_telegram"] is True
-    assert {a["nombre"] for a in salud["agentes"]} == {"agente_acciones", "agente_procesos"}
+    salud = cliente.get("/salud")
+    assert salud.headers["content-type"].startswith("application/json")
+    assert "charset=utf-8" in salud.headers["content-type"]
+    datos = salud.json()
+    assert datos["ok"] is True
+    assert datos["canal_telegram"] is True
+    assert {a["nombre"] for a in datos["agentes"]} == {"agente_acciones", "agente_procesos"}
     assert len(cliente.get("/agentes").json()["agentes"]) == 2
 
 
