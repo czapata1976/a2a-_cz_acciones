@@ -1,9 +1,10 @@
 """Punto de entrada único para Heroku.
 
-Un mismo repositorio despliega dos apps; cada una elige su rol con la config var `ROL`:
+Un mismo repositorio despliega tres apps; cada una elige su rol con la config var `ROL`:
 
     ROL=agente       → servidor A2A del agente (src/agente_acciones/servidor.py)
     ROL=coordinador  → coordinador + canal de Telegram (coordinador/main.py)
+    ROL=web          → chat web con login (web/main.py)
 
 Heroku entrega el puerto en `PORT`; el proceso escucha en 0.0.0.0.
 """
@@ -18,6 +19,12 @@ RAIZ = Path(__file__).resolve().parents[1]
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
+from dotenv import load_dotenv  # noqa: E402
+
+# En Heroku no hay `.env` (queda fuera del slug): las variables llegan como config vars. En local
+# permite arrancar con el mismo punto de entrada para probar los tres roles.
+load_dotenv(RAIZ / ".env")
+
 logging.basicConfig(level=os.environ.get("LOG_LEVEL", "INFO").upper(),
                     format="%(asctime)s %(levelname)s %(name)s %(message)s")
 logger = logging.getLogger("heroku")
@@ -25,21 +32,32 @@ logger = logging.getLogger("heroku")
 APPS = {
     "agente": "src.agente_acciones.servidor:crear_app",
     "coordinador": "coordinador.main:crear_app",
+    "web": "web.main:crear_app",
+}
+
+ROLES_CON_CLAVE = {
+    "agente": ("AGENTE_CLAVE", "sin clave el agente rechaza todos los mensajes"),
+    "coordinador": ("COORDINADOR_CLAVE", "sin clave /chat rechaza todos los mensajes"),
+    "web": ("WEB_CLAVE_HASH", "sin WEB_USUARIO y WEB_CLAVE_HASH el chat web no arranca"),
 }
 
 
 def main() -> int:
     rol = (os.environ.get("ROL") or "").strip().lower()
     if rol not in APPS:
-        logger.error("Define ROL=agente o ROL=coordinador (recibido: %r).", rol)
+        logger.error("Define ROL=agente, ROL=coordinador o ROL=web (recibido: %r).", rol)
         return 2
     puerto = int(os.environ.get("PORT") or 8080)
 
-    if rol == "agente" and not (os.environ.get("AGENTE_CLAVE") or "").strip():
-        logger.error("Falta AGENTE_CLAVE: sin clave el agente rechaza todos los mensajes.")
+    variable, motivo = ROLES_CON_CLAVE[rol]
+    if not (os.environ.get(variable) or "").strip():
+        logger.error("Falta %s: %s.", variable, motivo)
         return 1
-    if rol == "coordinador" and not (os.environ.get("COORDINADOR_CLAVE") or "").strip():
-        logger.error("Falta COORDINADOR_CLAVE: sin clave /chat rechaza todos los mensajes.")
+    if rol == "web" and not (os.environ.get("WEB_USUARIO") or "").strip():
+        logger.error("Falta WEB_USUARIO: es el usuario del login del chat web.")
+        return 1
+    if rol == "web" and len((os.environ.get("WEB_SECRETO") or "").strip()) < 32:
+        logger.error("Falta WEB_SECRETO (32 caracteres o más): firma la cookie de sesión.")
         return 1
 
     import uvicorn

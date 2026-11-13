@@ -11,7 +11,7 @@ concurrency:
 
 jobs:
   desplegar:
-    name: Dos apps (agente y coordinador)
+    name: Tres apps (agente, coordinador y chat web)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +30,14 @@ jobs:
         run: |
           git push "https://heroku:${HEROKU_API_KEY}@git.heroku.com/coordinador-cz-acciones.git" HEAD:main
 
+      - name: Desplegar chat web
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          git push "https://heroku:${HEROKU_API_KEY}@git.heroku.com/chat-web-cz-acciones.git" HEAD:main
+
       - name: Resumen
         run: |
           echo "Agente:      https://agente-cz-acciones-50f663cbb84c.herokuapp.com/salud"
           echo "Coordinador: https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com/salud"
+          echo "Chat web:    https://chat-web-cz-acciones-08a900afb62c.herokuapp.com/salud"

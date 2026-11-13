@@ -1,12 +1,13 @@
 # `agente_cz_A2A` · agente de acciones + coordinador A2A del equipo
 
-**Entrega del taller A2A en producción.** El sistema está desplegado en Heroku, con dos apps y una
+**Entrega del taller A2A en producción.** El sistema está desplegado en Heroku, con tres apps y una
 dirección pública HTTPS cada una, sin depender de ningún computador local:
 
 | Pieza | Dirección pública | Qué es |
 | --- | --- | --- |
 | Agente `agente_cz_A2A` | <https://agente-cz-acciones-50f663cbb84c.herokuapp.com> | Servicio A2A propio: ficha, `message/send` con clave y `/salud` |
 | Coordinador | <https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com> | Supervisor que elige un agente, lo cita, recuerda la conversación y atiende el canal |
+| Chat web | <https://chat-web-cz-acciones-08a900afb62c.herokuapp.com> | Consola con login, equipo de hasta 4 agentes remotos y traza del flujo A2A |
 
 | Integrante | Agente | Skill | Ficha pública | Dueño del despliegue |
 | --- | --- | --- | --- | --- |
@@ -166,7 +167,7 @@ heroku authorizations:create --description "GitHub Actions deploy" --short
 ```
 
 Si el push lo haces desde el repositorio de GitHub, revisa *Actions*: cada ejecución muestra el
-resultado del despliegue de ambas apps.
+resultado del despliegue de las tres apps.
 
 ### Desde el computador (manual)
 
@@ -174,8 +175,10 @@ resultado del despliegue de ambas apps.
 # una sola vez
 heroku create agente-cz-acciones
 heroku create coordinador-cz-acciones
+heroku create chat-web-cz-acciones
 git remote add agente      https://git.heroku.com/agente-cz-acciones.git
 git remote add coordinador https://git.heroku.com/coordinador-cz-acciones.git
+git remote add web         https://git.heroku.com/chat-web-cz-acciones.git
 
 # agente
 heroku config:set --app agente-cz-acciones ROL=agente GOOGLE_API_KEY=... MODELO=gemini-3.5-flash-lite ^
@@ -188,8 +191,19 @@ heroku config:set --app coordinador-cz-acciones ROL=coordinador COORDINADOR_CLAV
   TELEGRAM_TOKEN=... TELEGRAM_SECRET=... SALTOS=true WEB_CONCURRENCY=1
 git push coordinador HEAD:main
 
+# chat web (login propio; habla con el agente desplegado por A2A)
+heroku config:set --app chat-web-cz-acciones ROL=web WEB_USUARIO=carlos ^
+  WEB_CLAVE_HASH=<salida de scripts\clave_web.py> WEB_SECRETO=<salida de scripts\clave_web.py> ^
+  A2A_CZZ_URL=https://agente-cz-acciones-50f663cbb84c.herokuapp.com A2A_CZZ_CLAVE=... ^
+  WEB_DATOS=/tmp/chat.db WEB_CONCURRENCY=1
+git push web HEAD:main
+
 # el Procfile declara `web: python scripts/heroku_web.py`
 ```
+
+`WEB_DATOS=/tmp/chat.db`: el disco de Heroku es efímero, así que las conversaciones del chat web se
+pierden en cada reinicio del dyno. El agente y el coordinador no se ven afectados (su memoria vive en
+el proceso, igual de efímera por diseño del taller).
 
 `WEB_CONCURRENCY=1` es obligatorio: la memoria por conversación vive en el proceso (`MemorySaver`). Con
 dos workers, dos mensajes del mismo cliente pueden caer en procesos distintos y la conversación
@@ -284,9 +298,17 @@ devuelve el texto del agente sin reescribirlo.
 
 ### Extra: chat web con equipo de agentes
 
-El chat de `http://127.0.0.1:8110` (login propio) permite sumar hasta 4 agentes públicos, consultarlos
-en paralelo y ver la traza A2A de cada turno. Es una demo aparte: el camino de la entrega es el
-coordinador y el canal.
+El chat (login propio) permite sumar hasta 4 agentes públicos, consultarlos en paralelo y ver la
+traza A2A de cada turno.
+
+| Dónde | Dirección |
+| --- | --- |
+| En la nube | <https://chat-web-cz-acciones-08a900afb62c.herokuapp.com> (`ROL=web` en Heroku) |
+| En local | <http://127.0.0.1:8110> (`scripts\servidor_web.py`) |
+
+Es una demo aparte: el camino de la entrega es el coordinador y el canal. El login se configura con
+`WEB_USUARIO`, `WEB_CLAVE_HASH` y `WEB_SECRETO` (`scripts\clave_web.py`); en la nube el agente que
+sintetiza es el desplegado, apuntado con `A2A_CZZ_URL` y `A2A_CZZ_CLAVE`.
 
 ```dotenv
 A2A_SERVIDORES=http://127.0.0.1:2025,http://127.0.0.1:2026,http://127.0.0.1:2027,http://127.0.0.1:2028,http://127.0.0.1:2029

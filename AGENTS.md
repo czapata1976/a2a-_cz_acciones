@@ -37,7 +37,7 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 | `coordinador/supervisor.py` | Grafo `elegir → consultar → componer` con `MemorySaver`; no altera el texto del agente. |
 | `scripts/servidor_agente.py` · `servidor_coordinador.py` | Arranque local en 2029 y 8120. |
 | `scripts/probar_coordinador.py` · `verificar_entrega.py` | `--saltos` del supervisor y recorrido de los resultados esperados. |
-| `scripts/heroku_web.py` · `Procfile` · `.slugignore` | Dos apps Heroku con `ROL=agente` o `ROL=coordinador`, un solo worker. |
+| `scripts/heroku_web.py` · `Procfile` · `.slugignore` | Tres apps Heroku con `ROL=agente`, `ROL=coordinador` o `ROL=web`, un solo worker. |
 | `evidencias/` | Transcripts de la verificación, de los saltos y del agente apagado. |
 
 ## Cómo se trabaja
@@ -53,8 +53,10 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
   El coordinador va aparte: `.venv\Scripts\python.exe scripts\servidor_coordinador.py` (8120, exige
   `COORDINADOR_CLAVE` y `URLS_AGENTES`). `langgraph dev` sigue disponible para depurar el grafo con la
   interfaz de LangGraph Studio; ahí el `assistant_id` se obtiene con `POST /assistants/search`.
-- En la nube: dos apps Heroku del mismo repo con `ROL=agente` y `ROL=coordinador`; `URL_PUBLICA` publica
-  la dirección real en la ficha y `WEB_CONCURRENCY=1` mantiene la memoria en un solo proceso.
+- En la nube: tres apps Heroku del mismo repo con `ROL=agente`, `ROL=coordinador` y `ROL=web`;
+  `URL_PUBLICA` publica la dirección real en la ficha y `WEB_CONCURRENCY=1` mantiene la memoria en un
+  solo proceso. El chat web apunta al agente desplegado con `A2A_CZZ_URL` y `A2A_CZZ_CLAVE`, y guarda
+  su SQLite en `WEB_DATOS=/tmp/chat.db` porque el disco de Heroku es efímero.
 - El notebook usa su propio `.venv-notebook` (`requirements-notebook.txt`), **sin** `langgraph-cli`:
   instalar `a2a-sdk` en el entorno del servidor sube OpenTelemetry y `langgraph-api` deja de arrancar.
 - Canales: `npm install` para el puente WhatsApp y `.venv\Scripts\python.exe scripts\servidor_canales.py`
