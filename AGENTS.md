@@ -27,7 +27,7 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 | `web/` | Chat web (FastAPI + estáticos) con login, equipo de hasta 4 agentes remotos y traza del flujo A2A. |
 | `web/auth.py` · `web/config.py` | Clave PBKDF2, cookie HMAC firmada y configuración `WEB_*` (usuario único en `.env`). |
 | `web/a2a.py` · `web/orquestador.py` | Descubrimiento por tarjeta, `message/send` y abanico paralelo + síntesis del agente local. |
-| `web/almacen.py` | SQLite local (`web/.runtime/chat.db`): equipo, conversaciones y trazas. |
+| `web/almacen.py` | SQLite local o Postgres (`DATABASE_URL`, tablas `czz_*`): equipo, conversaciones y trazas. |
 | `scripts/servidor_web.py` · `scripts/clave_web.py` | Levanta el chat en 8110 y genera `WEB_CLAVE_HASH` / `WEB_SECRETO`. |
 | `tests/test_web.py` | Login, tope de cuatro agentes, orquestación y estáticos, sin salir a la red. |
 | `src/agente_acciones/tarjeta.py` | Ficha pública: qué hace, qué **no** hace, skills con etiquetas y ejemplos, y `URL_PUBLICA`. |
@@ -56,7 +56,7 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 - En la nube: tres apps Heroku del mismo repo con `ROL=agente`, `ROL=coordinador` y `ROL=web`;
   `URL_PUBLICA` publica la dirección real en la ficha y `WEB_CONCURRENCY=1` mantiene la memoria en un
   solo proceso. El chat web apunta al agente desplegado con `A2A_CZZ_URL` y `A2A_CZZ_CLAVE`, y guarda
-  su SQLite en `WEB_DATOS=/tmp/chat.db` porque el disco de Heroku es efímero.
+  en Postgres (`DATABASE_URL`) con tablas propias `czz_*`; sin Postgres usa SQLite en `WEB_DATOS`.
 - El notebook usa su propio `.venv-notebook` (`requirements-notebook.txt`), **sin** `langgraph-cli`:
   instalar `a2a-sdk` en el entorno del servidor sube OpenTelemetry y `langgraph-api` deja de arrancar.
 - Canales: `npm install` para el puente WhatsApp y `.venv\Scripts\python.exe scripts\servidor_canales.py`

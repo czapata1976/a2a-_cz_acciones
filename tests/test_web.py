@@ -5,11 +5,14 @@ agentes, el abanico en paralelo y la síntesis. La prueba real del agente está 
 """
 from __future__ import annotations
 
+import os
+
 import pytest
+from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 
 from web import a2a
-from web.almacen import Almacen
+from web.almacen import Almacen, es_postgres
 from web.auth import crear_cookie, hash_clave
 from web.config import Settings
 from web.main import NOMBRE_COOKIE, crear_app
@@ -45,6 +48,12 @@ def almacen() -> Almacen:
 def cliente(settings, almacen) -> TestClient:
     with TestClient(crear_app(settings, almacen)) as prueba:
         yield prueba
+
+
+def url_postgres() -> str:
+    """`DATABASE_URL` del `.env`, si hay Postgres a mano."""
+    load_dotenv()
+    return (os.environ.get("DATABASE_URL") or "").strip()
 
 
 def entrar(cliente: TestClient) -> TestClient:
@@ -358,3 +367,30 @@ def test_salud_informa_equipo(cliente: TestClient, sin_red):
     assert datos["agente"]["estado"] == "disponible"
     assert datos["equipo"]["maximo"] == 4
     assert cliente.get("/ok").json()["ok"] is True
+
+
+def test_detecta_ruta_de_postgres():
+    assert es_postgres("postgresql://usuario:clave@host:5432/base")
+    assert es_postgres("postgres://usuario:clave@host/base")
+    assert not es_postgres("web/.runtime/chat.db")
+    assert not es_postgres(":memory:")
+
+
+def test_almacen_postgres_guarda_borra_y_usa_tablas_propias():
+    url = url_postgres()
+    if not url:
+        pytest.skip("sin DATABASE_URL: no hay Postgres para probar")
+    almacen = Almacen(url)
+    try:
+        charla = almacen.crear_charla()
+        almacen.agregar_mensaje(charla, "user", "prueba postgres", [{"tipo": "prueba"}])
+        almacen.agregar_mensaje(charla, "assistant", "respuesta")
+        assert almacen.existe_charla(charla)
+        mensajes = almacen.mensajes(charla)
+        assert [m["rol"] for m in mensajes] == ["user", "assistant"]
+        assert mensajes[0]["flujo"] == [{"tipo": "prueba"}]
+        assert almacen.borrar_charla(charla)
+        assert not almacen.existe_charla(charla)
+        assert almacen.mensajes(charla) == []
+    finally:
+        almacen.cerrar()

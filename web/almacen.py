@@ -1,7 +1,9 @@
 """Persistencia del chat web: equipo de agentes, conversaciones y trazas del flujo.
 
-SQLite del propio proyecto (`WEB_DATOS`, por defecto `web/.runtime/chat.db`, ignorado por git).
-Una sola conexión con candado: la API es asíncrona pero las consultas son instantáneas.
+Dos backends con la misma API: SQLite para local (`WEB_DATOS`, por defecto
+`web/.runtime/chat.db`, ignorado por git) y Postgres cuando la ruta es una URL
+(`DATABASE_URL` en Heroku). Las tablas van con prefijo `czz_` porque el Postgres del taller es
+compartido con otros proyectos.
 """
 from __future__ import annotations
 
@@ -12,12 +14,15 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
+PREFIJO_POSTGRES = "postgres"
+"""El valor de `WEB_DATOS`/`DATABASE_URL` empieza así cuando el backend es Postgres."""
+
 
 def _ahora() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
-ESQUEMA = """
+ESQUEMA_SQLITE = """
 CREATE TABLE IF NOT EXISTS equipo (
     url TEXT PRIMARY KEY,
     nombre TEXT NOT NULL DEFAULT '',
@@ -38,89 +43,183 @@ CREATE TABLE IF NOT EXISTS mensajes (
 CREATE INDEX IF NOT EXISTS idx_mensajes_charla ON mensajes(charla_id, id);
 """
 
+ESQUEMA_POSTGRES = """
+CREATE TABLE IF NOT EXISTS czz_equipo (
+    url TEXT PRIMARY KEY,
+    nombre TEXT NOT NULL DEFAULT '',
+    agregado_en TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS czz_charlas (
+    id TEXT PRIMARY KEY,
+    creada_en TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS czz_mensajes (
+    id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    charla_id TEXT NOT NULL,
+    rol TEXT NOT NULL,
+    texto TEXT NOT NULL,
+    flujo TEXT NOT NULL DEFAULT '[]',
+    creado_en TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_czz_mensajes_charla ON czz_mensajes(charla_id, id);
+"""
+
+# Las consultas se escriben con `?` (SQLite) y se traducen a `%s` en Postgres.
+TABLAS = {
+    "sqlite": {"equipo": "equipo", "charlas": "charlas", "mensajes": "mensajes"},
+    "postgres": {
+        "equipo": "czz_equipo",
+        "charlas": "czz_charlas",
+        "mensajes": "czz_mensajes",
+    },
+}
+
+
+def es_postgres(ruta: str | Path) -> bool:
+    """¿La ruta es una URL de Postgres en vez del archivo SQLite?"""
+    return str(ruta).strip().lower().startswith(PREFIJO_POSTGRES)
+
 
 class Almacen:
     """Acceso a la base del chat. Cada método es corto y atómico."""
 
     def __init__(self, ruta: str | Path) -> None:
-        self.ruta = str(ruta)
+        self.ruta = str(ruta).strip()
+        self._postgres = es_postgres(self.ruta)
+        self._tablas = TABLAS["postgres" if self._postgres else "sqlite"]
+        self._candado = threading.Lock()
+        self._conexion = None
+        self._pool = None
+        if self._postgres:
+            self._abrir_postgres()
+        else:
+            self._abrir_sqlite()
+
+    # --- arranque ---------------------------------------------------------
+    def _abrir_sqlite(self) -> None:
         if self.ruta != ":memory:":
             Path(self.ruta).parent.mkdir(parents=True, exist_ok=True)
-        self._candado = threading.Lock()
         self._conexion = sqlite3.connect(self.ruta, check_same_thread=False)
         self._conexion.row_factory = sqlite3.Row
         with self._candado:
-            self._conexion.executescript(ESQUEMA)
+            self._conexion.executescript(ESQUEMA_SQLITE)
             self._conexion.commit()
+
+    def _abrir_postgres(self) -> None:
+        try:
+            from psycopg.rows import dict_row
+            from psycopg_pool import ConnectionPool
+        except ImportError as error:  # pragma: no cover - depende del entorno
+            raise RuntimeError(
+                "Para usar Postgres instala las dependencias: pip install -r requirements.txt"
+            ) from error
+        # El plan gratuito del taller cierra conexiones inactivas: el pool las repone solo.
+        self._pool = ConnectionPool(
+            self.ruta,
+            min_size=1,
+            max_size=4,
+            timeout=15,
+            kwargs={"row_factory": dict_row, "autocommit": True},
+            open=True,
+        )
+        with self._pool.connection() as conexion:
+            conexion.execute(ESQUEMA_POSTGRES)
 
     def cerrar(self) -> None:
         with self._candado:
-            self._conexion.close()
+            if self._pool is not None:
+                self._pool.close()
+                self._pool = None
+            elif self._conexion is not None:
+                self._conexion.close()
+                self._conexion = None
+
+    # --- consultas --------------------------------------------------------
+    def _sql(self, consulta: str) -> str:
+        """Cambia `{tabla}` por su nombre real y los marcadores `?` por `%s` si es Postgres."""
+        traducida = consulta.format(**self._tablas)
+        if self._postgres:
+            traducida = traducida.replace("?", "%s")
+        return traducida
+
+    def _leer(self, consulta: str, parametros: tuple = ()) -> list:
+        consulta = self._sql(consulta)
+        if self._pool is not None:
+            with self._pool.connection() as conexion:
+                return conexion.execute(consulta, parametros).fetchall()
+        with self._candado:
+            return self._conexion.execute(consulta, parametros).fetchall()
+
+    def _escribir(self, consultas: list[tuple[str, tuple]]) -> int:
+        """Ejecuta una o más sentencias y devuelve las filas afectadas por la primera."""
+        traducidas = [(self._sql(c), p) for c, p in consultas]
+        if self._pool is not None:
+            with self._pool.connection() as conexion, conexion.transaction():
+                filas = 0
+                for posicion, (consulta, parametros) in enumerate(traducidas):
+                    afectadas = conexion.execute(consulta, parametros).rowcount
+                    if posicion == 0:
+                        filas = afectadas
+            return filas
+        with self._candado:
+            filas = 0
+            for posicion, (consulta, parametros) in enumerate(traducidas):
+                afectadas = self._conexion.execute(consulta, parametros).rowcount
+                if posicion == 0:
+                    filas = afectadas
+            self._conexion.commit()
+            return filas
 
     # --- equipo -----------------------------------------------------------
     def agentes(self) -> list[dict]:
-        with self._candado:
-            filas = self._conexion.execute(
-                "SELECT url, nombre, agregado_en FROM equipo ORDER BY agregado_en, url"
-            ).fetchall()
+        filas = self._leer("SELECT url, nombre, agregado_en FROM {equipo} ORDER BY agregado_en, url")
         return [dict(fila) for fila in filas]
 
     def agregar_agente(self, url: str, nombre: str = "") -> None:
-        with self._candado:
-            self._conexion.execute(
-                "INSERT INTO equipo (url, nombre, agregado_en) VALUES (?, ?, ?) "
-                "ON CONFLICT(url) DO UPDATE SET nombre = excluded.nombre",
-                (url, nombre, _ahora()),
-            )
-            self._conexion.commit()
+        self._escribir([(
+            "INSERT INTO {equipo} (url, nombre, agregado_en) VALUES (?, ?, ?) "
+            "ON CONFLICT(url) DO UPDATE SET nombre = excluded.nombre",
+            (url, nombre, _ahora()),
+        )])
 
     def quitar_agente(self, url: str) -> bool:
-        with self._candado:
-            cursor = self._conexion.execute("DELETE FROM equipo WHERE url = ?", (url,))
-            self._conexion.commit()
-        return cursor.rowcount > 0
+        return self._escribir([("DELETE FROM {equipo} WHERE url = ?", (url,))]) > 0
 
     # --- conversaciones ---------------------------------------------------
     def crear_charla(self) -> str:
         identificador = str(uuid.uuid4())
-        with self._candado:
-            self._conexion.execute(
-                "INSERT INTO charlas (id, creada_en) VALUES (?, ?)", (identificador, _ahora())
-            )
-            self._conexion.commit()
+        self._escribir([(
+            "INSERT INTO {charlas} (id, creada_en) VALUES (?, ?)",
+            (identificador, _ahora()),
+        )])
         return identificador
 
     def existe_charla(self, charla_id: str) -> bool:
-        with self._candado:
-            fila = self._conexion.execute(
-                "SELECT 1 FROM charlas WHERE id = ?", (charla_id,)
-            ).fetchone()
-        return fila is not None
+        filas = self._leer("SELECT 1 AS existe FROM {charlas} WHERE id = ?", (charla_id,))
+        return bool(filas)
 
     def charlas(self) -> list[dict]:
-        with self._candado:
-            filas = self._conexion.execute(
-                "SELECT c.id, c.creada_en, "
-                "(SELECT COUNT(*) FROM mensajes m WHERE m.charla_id = c.id) AS mensajes, "
-                "(SELECT texto FROM mensajes m WHERE m.charla_id = c.id AND m.rol = 'user' "
-                " ORDER BY m.id LIMIT 1) AS titulo "
-                "FROM charlas c ORDER BY c.creada_en DESC"
-            ).fetchall()
+        filas = self._leer(
+            "SELECT c.id, c.creada_en, "
+            "(SELECT COUNT(*) FROM {mensajes} m WHERE m.charla_id = c.id) AS mensajes, "
+            "(SELECT texto FROM {mensajes} m WHERE m.charla_id = c.id AND m.rol = 'user' "
+            " ORDER BY m.id LIMIT 1) AS titulo "
+            "FROM {charlas} c ORDER BY c.creada_en DESC"
+        )
         return [dict(fila) for fila in filas]
 
     def borrar_charla(self, charla_id: str) -> bool:
-        with self._candado:
-            cursor = self._conexion.execute("DELETE FROM charlas WHERE id = ?", (charla_id,))
-            self._conexion.execute("DELETE FROM mensajes WHERE charla_id = ?", (charla_id,))
-            self._conexion.commit()
-        return cursor.rowcount > 0
+        filas = self._escribir([
+            ("DELETE FROM {charlas} WHERE id = ?", (charla_id,)),
+            ("DELETE FROM {mensajes} WHERE charla_id = ?", (charla_id,)),
+        ])
+        return filas > 0
 
     def mensajes(self, charla_id: str) -> list[dict]:
-        with self._candado:
-            filas = self._conexion.execute(
-                "SELECT rol, texto, flujo, creado_en FROM mensajes WHERE charla_id = ? ORDER BY id",
-                (charla_id,),
-            ).fetchall()
+        filas = self._leer(
+            "SELECT rol, texto, flujo, creado_en FROM {mensajes} WHERE charla_id = ? ORDER BY id",
+            (charla_id,),
+        )
         return [
             {
                 "rol": fila["rol"],
@@ -134,9 +233,7 @@ class Almacen:
     def agregar_mensaje(
         self, charla_id: str, rol: str, texto: str, flujo: list[dict] | None = None
     ) -> None:
-        with self._candado:
-            self._conexion.execute(
-                "INSERT INTO mensajes (charla_id, rol, texto, flujo, creado_en) VALUES (?, ?, ?, ?, ?)",
-                (charla_id, rol, texto, json.dumps(flujo or [], ensure_ascii=False), _ahora()),
-            )
-            self._conexion.commit()
+        self._escribir([(
+            "INSERT INTO {mensajes} (charla_id, rol, texto, flujo, creado_en) VALUES (?, ?, ?, ?, ?)",
+            (charla_id, rol, texto, json.dumps(flujo or [], ensure_ascii=False), _ahora()),
+        )])

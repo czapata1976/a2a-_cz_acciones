@@ -195,15 +195,15 @@ git push coordinador HEAD:main
 heroku config:set --app chat-web-cz-acciones ROL=web WEB_USUARIO=carlos ^
   WEB_CLAVE_HASH=<salida de scripts\clave_web.py> WEB_SECRETO=<salida de scripts\clave_web.py> ^
   A2A_CZZ_URL=https://agente-cz-acciones-50f663cbb84c.herokuapp.com A2A_CZZ_CLAVE=... ^
-  WEB_DATOS=/tmp/chat.db WEB_CONCURRENCY=1
+  DATABASE_URL=<postgres del taller> WEB_CONCURRENCY=1
 git push web HEAD:main
 
 # el Procfile declara `web: python scripts/heroku_web.py`
 ```
 
-`WEB_DATOS=/tmp/chat.db`: el disco de Heroku es efímero, así que las conversaciones del chat web se
-pierden en cada reinicio del dyno. El agente y el coordinador no se ven afectados (su memoria vive en
-el proceso, igual de efímera por diseño del taller).
+`DATABASE_URL` es la base del chat: con Postgres las conversaciones sobreviven a los reinicios del
+dyno; sin ella (o con `WEB_DATOS`) el chat usa SQLite en `/tmp` y se pierde en cada reinicio. Las
+tablas van con prefijo `czz_` porque el Postgres del taller es compartido.
 
 `WEB_CONCURRENCY=1` es obligatorio: la memoria por conversación vive en el proceso (`MemorySaver`). Con
 dos workers, dos mensajes del mismo cliente pueden caer en procesos distintos y la conversación
@@ -309,6 +309,12 @@ traza A2A de cada turno.
 Es una demo aparte: el camino de la entrega es el coordinador y el canal. El login se configura con
 `WEB_USUARIO`, `WEB_CLAVE_HASH` y `WEB_SECRETO` (`scripts\clave_web.py`); en la nube el agente que
 sintetiza es el desplegado, apuntado con `A2A_CZZ_URL` y `A2A_CZZ_CLAVE`.
+
+**Persistencia.** Las conversaciones, el equipo y las trazas viven en Postgres (`DATABASE_URL`) y
+sobreviven a los reinicios del dyno; sin esa variable caen a SQLite en `WEB_DATOS`
+(`web/.runtime/chat.db`). El Postgres del taller se comparte con otros proyectos, así que el chat crea
+sus propias tablas **con prefijo `czz_`** (`czz_equipo`, `czz_charlas`, `czz_mensajes`) y no toca
+ninguna otra.
 
 ```dotenv
 A2A_SERVIDORES=http://127.0.0.1:2025,http://127.0.0.1:2026,http://127.0.0.1:2027,http://127.0.0.1:2028,http://127.0.0.1:2029

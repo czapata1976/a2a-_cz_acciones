@@ -62,6 +62,7 @@ class Settings:
     a2a_graph: str
     a2a_timeout: float
     ruta_datos: str
+    """Archivo SQLite o URL de Postgres (`postgresql://…`)."""
     a2a_clave: str = ""
     max_agentes: int = MAX_AGENTES
 
@@ -97,6 +98,6 @@ def cargar_settings() -> Settings:
         a2a_url=_texto("A2A_CZZ_URL", "http://127.0.0.1:2029").rstrip("/"),
         a2a_graph=_texto("A2A_CZZ_GRAPH", "agente_cz_A2A"),
         a2a_timeout=_decimal("A2A_TIMEOUT", 180.0, 5.0, 600.0),
-        ruta_datos=_texto("WEB_DATOS", "web/.runtime/chat.db"),
+        ruta_datos=_texto("WEB_DATOS") or _texto("DATABASE_URL") or "web/.runtime/chat.db",
         a2a_clave=_texto("A2A_CZZ_CLAVE") or _texto("AGENTE_CLAVE"),
     )

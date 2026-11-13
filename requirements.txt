@@ -19,3 +19,5 @@ colorama>=0.4; sys_platform == "win32"
 # pruebas y notebooks
 pytest>=8
 nbformat>=5.10
+# chat web: Postgres del taller (Heroku entrega DATABASE_URL; en local se usa SQLite)
+psycopg[binary,pool]>=3.2,<4
