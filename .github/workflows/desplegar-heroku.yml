@@ -1,0 +1,34 @@
+name: Desplegar en Heroku
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: heroku-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  desplegar:
+    name: Dos apps (agente y coordinador)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Desplegar agente A2A
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          git push "https://heroku:${HEROKU_API_KEY}@git.heroku.com/agente-cz-acciones.git" HEAD:main
+
+      - name: Desplegar coordinador
+        env:
+          HEROKU_API_KEY: ${{ secrets.HEROKU_API_KEY }}
+        run: |
+          git push "https://heroku:${HEROKU_API_KEY}@git.heroku.com/coordinador-cz-acciones.git" HEAD:main
+
+      - name: Resumen
+        run: |
+          echo "Agente:      https://agente-cz-acciones-50f663cbb84c.herokuapp.com/salud"
+          echo "Coordinador: https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com/salud"

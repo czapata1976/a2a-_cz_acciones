@@ -1,6 +1,7 @@
 .venv
 .venv-notebook
 node_modules
+.github
 whatsapp/.runtime
 web/.runtime
 logs

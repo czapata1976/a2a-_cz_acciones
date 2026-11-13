@@ -153,6 +153,23 @@ Pruebas automáticas (85 en total; las de integración se saltan si el servidor 
 
 Un mismo repositorio sirve las dos apps; cada una elige su rol con la config var `ROL`.
 
+### Desde GitHub (automático)
+
+El repositorio <https://github.com/czapata1976/a2a-_cz_acciones> despliega a Heroku con
+[`.github/workflows/desplegar-heroku.yml`](.github/workflows/desplegar-heroku.yml): cada push a `main`
+publica las dos apps. Solo necesita el secreto `HEROKU_API_KEY` (token de Heroku) en
+*Settings → Secrets and variables → Actions*.
+
+```powershell
+# token de Heroku para el secreto de GitHub (no se versiona)
+heroku authorizations:create --description "GitHub Actions deploy" --short
+```
+
+Si el push lo haces desde el repositorio de GitHub, revisa *Actions*: cada ejecución muestra el
+resultado del despliegue de ambas apps.
+
+### Desde el computador (manual)
+
 ```powershell
 # una sola vez
 heroku create agente-cz-acciones
