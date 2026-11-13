@@ -1,0 +1,12 @@
+Resultado 9: se apaga el agente de acciones y se le hace una pregunta de su tema.
+Fecha: 2026-11-12T22:02:45
+Accion: heroku ps:scale web=0 --app agente-cz-acciones
+
+motivo: caido
+La parte de agente_cz_A2A no está disponible ahora (agente_cz_A2A respondió HTTP 503.). Los demás agentes siguen disponibles:
+- agente_bryhan: perfil; procesos; diseno; comparacion
+
+Y un tema de otro agente sigue funcionando:
+motivo: ok · agente: agente_bryhan
+Respondió: agente_bryhan
+https://agente-bryhan-624098704764.southamerica-west1.run.app/a2a/66deff2e-b253-5455-82bc-867829b60469

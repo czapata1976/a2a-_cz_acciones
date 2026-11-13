@@ -1,10 +1,51 @@
-# `agente_cz_A2A` · copia autónoma del agente de Carlos Zapata
+# `agente_cz_A2A` · agente de acciones + coordinador A2A del equipo
 
-Servicio **A2A (Agent2Agent)** que expone el mismo perfil de asesoría en acciones de
-[`mi-agente-cz`](<../grupo-1-taller-a2a - entrega/mi-agente-cz/README.md>), pero como una **copia independiente**: su propio grafo,
-su propio puerto, su propio `.env` y su propio entorno virtual. Se puede levantar solo, junto al
-agente original o junto al resto de los agentes del grupo, y está pensado para que **otro agente lo
-descubra y lo invoque** sin intervención humana.
+**Entrega del taller A2A en producción.** El sistema está desplegado en Heroku, con dos apps y una
+dirección pública HTTPS cada una, sin depender de ningún computador local:
+
+| Pieza | Dirección pública | Qué es |
+| --- | --- | --- |
+| Agente `agente_cz_A2A` | <https://agente-cz-acciones-50f663cbb84c.herokuapp.com> | Servicio A2A propio: ficha, `message/send` con clave y `/salud` |
+| Coordinador | <https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com> | Supervisor que elige un agente, lo cita, recuerda la conversación y atiende el canal |
+
+| Integrante | Agente | Skill | Ficha pública | Dueño del despliegue |
+| --- | --- | --- | --- | --- |
+| Carlos Zapata | `agente_cz_A2A` | analizar acciones con datos de mercado y fundamentales | <https://agente-cz-acciones-50f663cbb84c.herokuapp.com/.well-known/agent-card.json> | Carlos Zapata |
+| Bryhan (otro grupo) | `agente_bryhan` | perfil, procesos, diseño de datos/IA y comparación técnica | <https://agente-bryhan-624098704764.southamerica-west1.run.app/.well-known/agent-card.json> | Bryhan (extra: agente de otro grupo) |
+
+### Prueba directa de cada agente
+
+```powershell
+# agente de acciones (con su clave: X-Agente-Clave)
+$env:AGENTE_CLAVE = "<clave entregada por vía privada>"
+curl.exe -s https://agente-cz-acciones-50f663cbb84c.herokuapp.com/salud
+curl.exe -s https://agente-cz-acciones-50f663cbb84c.herokuapp.com/.well-known/agent-card.json
+curl.exe -s -X POST https://agente-cz-acciones-50f663cbb84c.herokuapp.com/a2a ^
+  -H "Content-Type: application/json" -H "X-Agente-Clave: %AGENTE_CLAVE%" ^
+  -d "{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"message/send\",\"params\":{\"message\":{\"role\":\"user\",\"messageId\":\"m1\",\"contextId\":\"<uuid>\",\"parts\":[{\"kind\":\"text\",\"text\":\"Analiza NVDA en US\"}]}}}"
+```
+
+```powershell
+# coordinador (con su clave: X-Coordinador-Clave)
+$env:COORDINADOR_CLAVE = "<clave entregada por vía privada>"
+curl.exe -s https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com/salud
+curl.exe -s -X POST https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com/chat ^
+  -H "Content-Type: application/json" -H "X-Coordinador-Clave: %COORDINADOR_CLAVE%" ^
+  -d "{\"mensaje\":\"Analiza NVDA en US\",\"cliente\":\"profesor\"}"
+
+# recorrido completo con los saltos del supervisor
+.venv\Scripts\python.exe scripts\probar_coordinador.py `
+  --url https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com --saltos
+```
+
+> Las claves de prueba se entregan al equipo docente por vía privada; no están en el repositorio.
+> `.env.example` solo trae valores ficticios.
+
+## Cómo se armó
+
+El agente conserva el perfil de asesoría en acciones de
+[`mi-agente-cz`](<../grupo-1-taller-a2a - entrega/mi-agente-cz/README.md>) como **copia independiente**:
+su propio grafo, su propio puerto, su propio `.env` y su propio entorno virtual.
 
 > **Proyecto independiente.** Vive en `Taller UAI IA\mi-agente-czz`, fuera del repositorio
 > `grupo-1-taller-a2a - entrega`. No comparte código ni entorno con el proyecto del grupo; solo
@@ -13,33 +54,38 @@ descubra y lo invoque** sin intervención humana.
 | Qué definir | Esta copia |
 | --- | --- |
 | Grafo / nombre A2A | `agente_cz_A2A` |
-| Dónde corre | `http://127.0.0.1:2029` |
-| Tipo de servicio | A2A nativo de `langgraph dev` (JSON-RPC sobre HTTP) |
-| Canales | Telegram (`8100/telegram/webhook` o polling) y WhatsApp (puente Baileys en 18082) |
-| Chat web | `http://127.0.0.1:8110` con login, equipo de hasta 4 agentes remotos y traza del flujo A2A |
+| En la nube | <https://agente-cz-acciones-50f663cbb84c.herokuapp.com> (Heroku, HTTPS) |
+| En local | `http://127.0.0.1:2029` (`scripts\servidor_agente.py`) |
+| Tipo de servicio | A2A propio: FastAPI + JSON-RPC `message/send`, ficha y `/salud` |
+| Coordinador | <https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com> (`POST /chat`, canal `POST /telegram`) |
+| Canales | Telegram conectado al coordinador; el chat web y WhatsApp quedan como extras |
 | Autonomía | Consulta mercado, fundamentales y apuntes sin aprobación; entrega el análisis completo en un turno |
 | Nunca sin una persona | Pagos, compras, ventas o transferencias |
 | Fuera de alcance | Lo tributario, legal y normativo: lo deriva al agente de auditoría |
 
 ## Contrato A2A
 
-Todo lo que otro agente necesita está en la tarjeta del agente; no hay acoplamiento al código.
+Todo lo que otro agente necesita está en la ficha; no hay acoplamiento al código. El coordinador lee
+`.well-known/agent-card.json` de cada URL de `URLS_AGENTES`.
 
 | Paso | Llamada | Para qué |
 | --- | --- | --- |
-| 1 | `POST /assistants/search` con `{"graph_id": "agente_cz_A2A"}` | Obtener el `assistant_id` (UUID) |
-| 2 | `GET /.well-known/agent-card.json?assistant_id=<uuid>` | Leer nombre, descripción, skills y `url` del endpoint A2A |
-| 3 | `POST /a2a/<uuid>` con `message/send` | Enviar la tarea y recibir la respuesta |
+| 1 | `GET /.well-known/agent-card.json` | Leer nombre, skills, límites y el endpoint A2A (público) |
+| 2 | `POST /a2a` con `message/send` y `X-Agente-Clave` | Enviar la tarea y recibir la respuesta |
+| 3 | `GET /salud` | Comprobar que el agente está arriba (público) |
 
 Reglas del contrato:
 
-- El `contextId` del mensaje es el `thread_id` del servidor: reutilízalo para que el agente recuerde
-  los turnos anteriores de la misma conversación.
-- La tarjeta anuncia la URL local. Si se publica por túnel, el cliente remoto debe reescribir
-  `supported_interfaces[].url` antes de enviar.
+- La ficha y `/salud` son **públicas**; `message/send` exige la **clave del agente**
+  (`X-Agente-Clave` o `Authorization: Bearer`). Sin clave configurada, el agente rechaza todo (falla
+  cerrado).
+- El `contextId` del mensaje es el `thread_id` del `MemorySaver`: reutilízalo para que el agente
+  recuerde los turnos anteriores de la misma conversación.
+- La ficha publica `URL_PUBLICA` (la dirección de Heroku), no la de la máquina donde corre.
 - El agente responde en un solo turno con el análisis y la fecha de corte. Si falta el ticker o el
   mercado, devuelve una única pregunta concreta; si solo falta el perfil de riesgo, entrega el
   análisis condicionado en vez de bloquear.
+- Un mensaje sin texto (foto, sticker, audio) se responde con que no puede leerlo.
 
 ### Datos garantizados
 
@@ -50,37 +96,91 @@ siempre recibe el precio y los fundamentales simulados del taller con su fecha d
 hubiera preferido responder de memoria. Ese bloque viaja solo al modelo: el `history` que ve el cliente
 A2A sigue siendo `user` / `agent`.
 
-## Cómo ejecutar
+## Cómo ejecutar en local
+
+Tres procesos en tres terminales. El primero es el agente; el segundo, el coordinador; el tercero es
+opcional (chat web, extra).
 
 ```powershell
 cd mi-agente-czz
 py -3.12 -m venv .venv
 .venv\Scripts\python.exe -m pip install -r requirements.txt
-copy .env.example .env            # y pega tu GOOGLE_API_KEY
-.venv\Scripts\langgraph.exe dev --port 2029
+copy .env.example .env            # pega GOOGLE_API_KEY y genera las claves (abajo)
+
+# claves de prueba (nunca se versionan)
+.venv\Scripts\python.exe scripts\clave_web.py --usuario carlos   # WEB_* del chat web (extra)
+python -c "import secrets; print(secrets.token_urlsafe(24))"     # AGENTE_CLAVE y COORDINADOR_CLAVE
 ```
 
-> Mientras edites el proyecto usa `--no-reload`: el watcher de `langgraph dev` recarga el servidor ante
-> cualquier cambio de archivo y, en Windows, el proceso termina en lugar de reiniciarse.
+```powershell
+# terminal 1 · agente A2A propio en 2029
+.venv\Scripts\python.exe scripts\servidor_agente.py
+
+# terminal 2 · coordinador en 8120 (lee URLS_AGENTES del .env)
+.venv\Scripts\python.exe scripts\servidor_coordinador.py
+
+# terminal 3 · chat web (extra) en 8110
+.venv\Scripts\python.exe scripts\servidor_web.py
+```
+
+`.env` local de ejemplo:
+
+```dotenv
+AGENTE_CLAVE=<clave-del-agente>
+A2A_CZZ_CLAVE=<la misma, para el chat web>
+URL_PUBLICA=
+COORDINADOR_CLAVE=<clave-del-coordinador>
+URLS_AGENTES=[{"url": "http://127.0.0.1:2029", "clave": "<clave-del-agente>"}]
+```
 
 Comprobaciones:
 
 ```powershell
-Invoke-RestMethod "http://127.0.0.1:2029/ok"
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:2029/assistants/search" `
-  -ContentType "application/json" -Body '{"graph_id":"agente_cz_A2A"}'
-Invoke-RestMethod "http://127.0.0.1:2029/.well-known/agent-card.json?assistant_id=<uuid>"
+Invoke-RestMethod "http://127.0.0.1:2029/salud"
+Invoke-RestMethod "http://127.0.0.1:2029/.well-known/agent-card.json"
+Invoke-RestMethod "http://127.0.0.1:8120/salud"
+.venv\Scripts\python.exe scripts\probar_coordinador.py --saltos
+.venv\Scripts\python.exe scripts\verificar_entrega.py --coordinador http://127.0.0.1:8120 --agente http://127.0.0.1:2029
 ```
 
-Pruebas (las de A2A se saltan si el servidor no está arriba; comparan el texto final con las cifras
-que devuelven las herramientas, no con el JSON completo):
+Pruebas automáticas (85 en total; las de integración se saltan si el servidor no está arriba):
 
 ```powershell
 .venv\Scripts\python.exe -m pytest tests -q
 ```
 
-Ficha para los demás agentes: `langgraph dev` crea el asistente con una descripción genérica. Tras
-cada arranque, publica la descripción real en la Agent Card:
+## Desplegar en Heroku
+
+Un mismo repositorio sirve las dos apps; cada una elige su rol con la config var `ROL`.
+
+```powershell
+# una sola vez
+heroku create agente-cz-acciones
+heroku create coordinador-cz-acciones
+git remote add agente      https://git.heroku.com/agente-cz-acciones.git
+git remote add coordinador https://git.heroku.com/coordinador-cz-acciones.git
+
+# agente
+heroku config:set --app agente-cz-acciones ROL=agente GOOGLE_API_KEY=... MODELO=gemini-3.5-flash-lite ^
+  AGENTE_CLAVE=... URL_PUBLICA=https://agente-cz-acciones-50f663cbb84c.herokuapp.com WEB_CONCURRENCY=1
+git push agente HEAD:main
+
+# coordinador (usa la URL y la clave del agente)
+heroku config:set --app coordinador-cz-acciones ROL=coordinador COORDINADOR_CLAVE=... ^
+  "URLS_AGENTES=[{""url"":""https://agente-cz-acciones-50f663cbb84c.herokuapp.com"",""clave"":""...""}]" ^
+  TELEGRAM_TOKEN=... TELEGRAM_SECRET=... SALTOS=true WEB_CONCURRENCY=1
+git push coordinador HEAD:main
+
+# el Procfile declara `web: python scripts/heroku_web.py`
+```
+
+`WEB_CONCURRENCY=1` es obligatorio: la memoria por conversación vive en el proceso (`MemorySaver`). Con
+dos workers, dos mensajes del mismo cliente pueden caer en procesos distintos y la conversación
+olvidaría sus turnos.
+
+Ficha para los demás agentes: la tarjeta se genera desde `URL_PUBLICA`, así que no hay que configurarla
+a mano en cada arranque.
+
 
 ```powershell
 .venv\Scripts\python.exe scripts\configurar_tarjeta.py
@@ -92,15 +192,12 @@ cada arranque, publica la descripción real en la Agent Card:
 ### Con `httpx` (sin dependencias del SDK)
 
 ```python
+import os
 import uuid
 import httpx
 
-BASE = "http://127.0.0.1:2029"
-GRAFO = "agente_cz_A2A"
-
-assistant_id = httpx.post(
-    f"{BASE}/assistants/search", json={"graph_id": GRAFO}, timeout=10
-).json()[0]["assistant_id"]
+BASE = "https://agente-cz-acciones-50f663cbb84c.herokuapp.com"   # o http://127.0.0.1:2029 en local
+CLAVE = os.environ["AGENTE_CLAVE"]                                # clave del agente, por vía privada
 
 cuerpo = {
     "jsonrpc": "2.0",
@@ -114,29 +211,48 @@ cuerpo = {
     }},
 }
 respuesta = httpx.post(
-    f"{BASE}/a2a/{assistant_id}", json=cuerpo, headers={"Accept": "application/json"}, timeout=180
+    f"{BASE}/a2a", json=cuerpo,
+    headers={"Accept": "application/json", "X-Agente-Clave": CLAVE}, timeout=180,
 ).json()
 resultado = respuesta["result"]
-# El texto viene en `artifacts` en el primer turno y en el último turno del `history` en los siguientes.
+# El texto viene en `artifacts`; si no hay, en `status.message` o en el último turno del historial.
 partes = [p["text"] for a in resultado.get("artifacts") or [] for p in a.get("parts", []) if p.get("kind") == "text"]
 if not partes:
-    ultimo = next((m for m in reversed(resultado.get("history") or []) if m.get("role") == "agent"), None)
-    partes = [p["text"] for p in (ultimo or {}).get("parts", []) if p.get("kind") == "text"]
+    estado = (resultado.get("status") or {}).get("message") or {}
+    partes = [p["text"] for p in estado.get("parts", []) if p.get("kind") == "text"]
 texto = "\n".join(partes)
 ```
 
-> El endpoint rechaza las peticiones sin `Accept: application/json` (responde
-> `{"error":"Accept header must include application/json"}`).
+> Sin `X-Agente-Clave` el endpoint responde **401**. Hay clientes que además exigen
+> `Accept: application/json`; enviarlo siempre no estorba.
 
 ### Con la colección Bruno
 
-`bruno/0-assistant-id` resuelve el UUID, `bruno/agent-card` lee la tarjeta y `bruno/message-send`
-hace el envío. El entorno `local` ya apunta al puerto 2029 y al grafo `agente_cz_A2A`.
+`bruno/` sirve para probar la ficha y el envío; el entorno `local` apunta al puerto 2029. Agrega la
+cabecera `X-Agente-Clave` en `message-send` cuando uses el servidor protegido.
 
 ### Registrar esta copia en el orquestador del grupo
 
-El servicio del grupo (`grupo-1-taller-a2a - entrega/servicio-fastapi/`) descubre los agentes por los
-servidores que tenga configurados. Para incluirlo, agrega el puerto en su `.env`:
+El coordinador de este repositorio la incluye con `URLS_AGENTES`. Si el orquestador del grupo usa otra
+lista, agrega esta dirección con su clave:
+
+```dotenv
+URLS_AGENTES=[{"url": "https://agente-cz-acciones-50f663cbb84c.herokuapp.com", "clave": "<clave-del-agente>"}]
+```
+
+### Quién elige al agente
+
+El supervisor lee las fichas y puntúa la pregunta contra el nombre, la descripción, las skills, sus
+etiquetas y sus ejemplos. Solo usa el historial cuando la pregunta depende del turno anterior
+(«¿y a 6 meses?»), para que una consulta de otro tema no herede el asunto previo. Si nadie alcanza el
+mínimo, responde que no tiene un agente para eso. Cada respuesta empieza con `Respondió: <agente>` y
+devuelve el texto del agente sin reescribirlo.
+
+### Extra: chat web con equipo de agentes
+
+El chat de `http://127.0.0.1:8110` (login propio) permite sumar hasta 4 agentes públicos, consultarlos
+en paralelo y ver la traza A2A de cada turno. Es una demo aparte: el camino de la entrega es el
+coordinador y el canal.
 
 ```dotenv
 A2A_SERVIDORES=http://127.0.0.1:2025,http://127.0.0.1:2026,http://127.0.0.1:2027,http://127.0.0.1:2028,http://127.0.0.1:2029
@@ -157,6 +273,54 @@ que además compita en la selección automática por especialidad, agrega su fic
 }
 ```
 
+## Qué pasa cuando algo falla
+
+| Situación | Qué hace el sistema |
+| --- | --- |
+| Un agente no responde o está apagado | El coordinador avisa «La parte de *X* no está disponible ahora (motivo)» y lista los agentes que siguen arriba. Los demás siguen respondiendo sus temas. |
+| Un agente estaba caído al arrancar el coordinador | La ficha se marca «no disponible» y el coordinador **vuelve a leerla** en el siguiente mensaje (cada 15 s como máximo), sin reiniciar. |
+| Llega una foto, sticker o audio | El canal responde «No puedo leer ese tipo de mensaje: solo entiendo texto». No se inventa contenido. |
+| Piden «ignora tus instrucciones» | El coordinador mantiene su rol, lo dice y sigue ofreciendo los agentes del equipo. |
+| Nadie del equipo sabe | «No tengo un agente para eso» y la lista de lo que el equipo cubre. |
+| Falta la clave | `/chat`, `/telegram` y `message/send` responden **401**. La ficha y `/salud` siguen siendo públicas. |
+| El agente falla a mitad de una consulta | Devuelve una tarea en estado `failed` con el motivo; el coordinador lo informa como parte no disponible. |
+
+## Límites conocidos
+
+- **La memoria se pierde al reiniciar** el proceso: `MemorySaver` vive en memoria, un hilo por cliente.
+  Un `heroku restart`, un despliegue nuevo o un reinicio del dyno la borran. (Extra no implementado:
+  checkpointer en Postgres.)
+- **Un solo worker por app.** Con dos procesos, la memoria se repartiría y la conversación olvidaría sus
+  turnos; por eso `WEB_CONCURRENCY=1`.
+- Los datos de mercado y fundamentales son **simulados del taller**: siempre se cita la fecha de corte.
+- La memoria del agente y la del coordinador son independientes: el coordinador guarda la conversación
+  y le pasa al agente el `contextId` del hilo.
+- El canal de Telegram requiere que el webhook del bot apunte a `https://<coordinador>/telegram` con el
+  `TELEGRAM_SECRET`.
+- El chat web y WhatsApp son extras de demostración; el camino evaluado es coordinador + Telegram.
+- El túnel de Cloudflare sirve para pruebas locales; **no** forma parte de la entrega (el PDF no lo
+  acepta como producción).
+
+## Evidencias
+
+En `evidencias/`:
+
+| Archivo | Qué muestra |
+| --- | --- |
+| `verificacion_resultados.txt` | Recorrido automático de los resultados 1-8, 10 y 11 contra las URLs públicas, con «debía / pasó / estado» |
+| `saltos_coordinador.txt` | Salida de `probar_coordinador.py --saltos`: elección de agente, consulta y cita en cada turno |
+| `agente_apagado.txt` | Resultado 9: se apaga el agente de acciones, el coordinador avisa y el otro agente sigue respondiendo |
+
+Regenerar:
+
+```powershell
+.venv\Scripts\python.exe scripts\verificar_entrega.py `
+  --coordinador https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com `
+  --agente https://agente-cz-acciones-50f663cbb84c.herokuapp.com --guardar
+.venv\Scripts\python.exe scripts\probar_coordinador.py `
+  --url https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com --saltos
+```
+
 ## Notebook
 
 `notebooks/a2a-test.ipynb` recorre el contrato completo: descubrimiento, tarjeta, envío directo,
@@ -175,7 +339,10 @@ py -3.12 -m venv .venv-notebook
 > cliente con `langgraph dev`, fija `protocol_version = "0.3.0"` en la tarjeta (el servidor anuncia
 > 1.0 pero responde el JSON de A2A 0.3).
 
-## Exponerlo con un túnel de Cloudflare
+## Exponerlo con un túnel de Cloudflare (solo pruebas locales)
+
+> **No forma parte de la entrega.** El taller pide direcciones públicas reales en la nube; el túnel
+> sirve para probar desde otra red antes de desplegar. El sistema de la entrega corre en Heroku.
 
 Cuando el agente que lo invoca está en otra red, el `127.0.0.1` no sirve. Con el servidor arriba:
 
@@ -380,14 +547,17 @@ Conversaciones, equipo y trazas viven en `web/.runtime/chat.db` (ignorado por gi
 mi-agente-czz/
 ├── AGENTS.md  plan.json  langgraph.json  pyproject.toml  package.json
 ├── requirements.txt  requirements-notebook.txt  .env.example  README.md
-├── src/agente_acciones/   graph.py  herramientas.py  prompts.py
+├── src/agente_acciones/   graph.py  herramientas.py  prompts.py  tarjeta.py  servidor.py
+├── coordinador/         main.py  config.py  supervisor.py  fichas.py  a2a.py  canal.py
 ├── canales/             main.py  telegram.py  whatsapp.py  agente.py  config.py
 ├── web/                 main.py  config.py  auth.py  almacen.py  a2a.py  orquestador.py · static/
-├── scripts/             configurar_tarjeta.py · configurar_telegram.py · servidor_canales.py · servidor_web.py · clave_web.py · telegram_polling.py
+├── scripts/             servidor_agente.py · servidor_coordinador.py · probar_coordinador.py · verificar_entrega.py · heroku_web.py · servidor_canales.py · servidor_web.py · clave_web.py
+├── Procfile · .python-version · .slugignore   ← despliegue en Heroku
 ├── whatsapp/            src/*.mjs · test/internal.test.mjs   ← puente Node/Baileys
 ├── bruno/               0-assistant-id · agent-card · 1-configurar-tarjeta · message-send
 ├── tunel_cloudflare.ps1 · tunel_cloudflare.py
-├── tests/               test_a2a_czz.py · test_datos_taller.py · test_canales.py · test_web.py
+├── tests/               test_a2a_czz.py · test_servidor_agente.py · test_coordinador.py · test_datos_taller.py · test_canales.py · test_web.py
+├── evidencias/          verificacion_resultados.txt · saltos_coordinador.txt · agente_apagado.txt
 ├── notebooks/           a2a-test.ipynb
 └── logs/  evidencias/
 ```
