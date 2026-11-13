@@ -1,0 +1,36 @@
+meta {
+  name: 16 · telegram foto (no texto)
+  type: http
+  seq: 16
+}
+
+post {
+  url: {{coordinador}}/telegram
+  body: json
+  auth: none
+}
+
+headers {
+  X-Telegram-Bot-Api-Secret-Token: {{process.env.TELEGRAM_SECRET}}
+}
+
+body:json {
+  {
+    "message": {
+      "chat": { "id": 999999999 },
+      "photo": [{ "file_id": "foto-de-prueba" }]
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+}
+
+docs {
+  Resultado 10 por el canal: llega una foto y el coordinador responde que no puede leer ese tipo
+  de mensaje. El chat 999999999 no existe, así que el envío a Telegram falla en el log; lo que se
+  verifica aquí es que el webhook acepta el mensaje y lo trata como no legible.
+
+  La prueba final es desde el teléfono: mándale una foto al bot y debe contestarte lo mismo.
+}

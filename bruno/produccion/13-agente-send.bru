@@ -1,0 +1,43 @@
+meta {
+  name: 13 · agente message/send
+  type: http
+  seq: 13
+}
+
+post {
+  url: {{agente}}/a2a
+  body: json
+  auth: none
+}
+
+headers {
+  X-Agente-Clave: {{process.env.AGENTE_CLAVE}}
+  Accept: application/json
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": "bruno-1",
+    "method": "message/send",
+    "params": {
+      "message": {
+        "role": "user",
+        "messageId": "bruno-m1",
+        "contextId": "11111111-1111-1111-1111-111111111111",
+        "parts": [{ "kind": "text", "text": "¿Cuánto vale MSFT en US?" }]
+      }
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.result.status.state: eq completed
+  res.body.result.artifacts: isDefined
+}
+
+docs {
+  Resultado 7: mensaje directo al agente con su clave, sin pasar por el coordinador.
+  El `contextId` es el hilo de memoria; si repites la petición con el mismo, el agente recuerda.
+}

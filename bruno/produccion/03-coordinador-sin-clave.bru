@@ -1,0 +1,26 @@
+meta {
+  name: 03 · coordinador sin clave (debe fallar)
+  type: http
+  seq: 3
+}
+
+post {
+  url: {{coordinador}}/chat
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "mensaje": "hola",
+    "cliente": "{{cliente}}"
+  }
+}
+
+assert {
+  res.status: eq 401
+}
+
+docs {
+  Resultado 8 del taller: sin `X-Coordinador-Clave`, `/chat` debe rechazar con 401.
+}

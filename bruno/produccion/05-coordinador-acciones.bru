@@ -1,0 +1,36 @@
+meta {
+  name: 05 · pregunta de acciones
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{coordinador}}/chat
+  body: json
+  auth: none
+}
+
+headers {
+  X-Coordinador-Clave: {{process.env.COORDINADOR_CLAVE}}
+}
+
+body:json {
+  {
+    "mensaje": "Analiza NVDA en US para un perfil moderado a 12 meses.",
+    "cliente": "{{cliente}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.motivo: eq ok
+  res.body.agente: eq agente_cz_A2A
+  res.body.respuesta: contains Respondió: agente_cz_A2A
+  res.body.respuesta_agente: isDefined
+  res.body.saltos: isDefined
+}
+
+docs {
+  Resultados 2 y 4: la pregunta llega al agente correcto, la respuesta dice quién respondió
+  y `respuesta_agente` trae su texto exacto (cifras, unidades y fecha de corte sin tocar).
+}

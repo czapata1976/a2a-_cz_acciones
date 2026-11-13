@@ -15,7 +15,7 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 | `langgraph.json` | Registra un solo grafo: `agente_cz_A2A`. |
 | `scripts/configurar_tarjeta.py` | Publica nombre y descripción en la Agent Card (lo que lee otro agente al descubrirlo). |
 | `notebooks/a2a-test.ipynb` | Descubrimiento, tarjeta, `message/send`, memoria por `contextId` y delegación desde un supervisor. |
-| `bruno/` | Colección para probar la tarjeta y `message/send` contra el puerto 2029. |
+| `bruno/` | Colección para probar la tarjeta y `message/send` contra el puerto 2029; `bruno/produccion/` tiene las 16 pruebas de la entrega con aserciones. |
 | `tunel_cloudflare.ps1` / `.py` | Publica el puerto 2029 con un túnel temporal de Cloudflare. |
 | `tests/test_a2a_czz.py` | Tarjeta y envío A2A, simulando a otro agente. Compara el texto final con las cifras de las herramientas. Se saltan si el servidor no está arriba. |
 | `tests/test_datos_taller.py` | Precarga determinista de datos (ticker, mercado y bloque `<datos_herramientas>`), sin red. |
@@ -109,7 +109,7 @@ mi-agente-czz/
 ├── scripts/             servidor_agente.py · servidor_coordinador.py · probar_coordinador.py · verificar_entrega.py · heroku_web.py · servidor_canales.py · servidor_web.py · clave_web.py
 ├── Procfile · .python-version · .slugignore
 ├── whatsapp/            src/*.mjs · test/internal.test.mjs (puente Node/Baileys)
-├── bruno/               0-assistant-id · 1-configurar-tarjeta · agent-card · message-send
+├── bruno/               0-assistant-id · 1-configurar-tarjeta · agent-card · message-send · produccion/
 ├── tunel_cloudflare.ps1 · tunel_cloudflare.py
 ├── tests/               test_a2a_czz.py · test_servidor_agente.py · test_coordinador.py · test_datos_taller.py · test_canales.py · test_web.py
 ├── evidencias/          verificacion_resultados.txt · saltos_coordinador.txt · agente_apagado.txt

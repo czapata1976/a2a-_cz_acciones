@@ -1,0 +1,36 @@
+meta {
+  name: 06 · seguimiento (memoria)
+  type: http
+  seq: 6
+}
+
+post {
+  url: {{coordinador}}/chat
+  body: json
+  auth: none
+}
+
+headers {
+  X-Coordinador-Clave: {{process.env.COORDINADOR_CLAVE}}
+}
+
+body:json {
+  {
+    "mensaje": "¿y si el horizonte fuera 3 meses?",
+    "cliente": "{{cliente}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.motivo: eq ok
+  res.body.agente: eq agente_cz_A2A
+}
+
+docs {
+  Resultado 5: la pregunta solo se entiende con el turno anterior. Debe correr **después** del 05
+  con el mismo `cliente`, y el coordinador debe seguir hablando de NVDA sin que se lo repitan.
+
+  Si lo corres con otro `cliente`, la respuesta correcta es `motivo = ninguno`: así se comprueba que
+  no mezcla conversaciones.
+}

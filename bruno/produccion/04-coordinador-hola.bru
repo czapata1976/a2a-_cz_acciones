@@ -1,0 +1,32 @@
+meta {
+  name: 04 · hola
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{coordinador}}/chat
+  body: json
+  auth: none
+}
+
+headers {
+  X-Coordinador-Clave: {{process.env.COORDINADOR_CLAVE}}
+}
+
+body:json {
+  {
+    "mensaje": "hola",
+    "cliente": "{{cliente}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.motivo: eq saludo
+  res.body.respuesta: contains agente_cz_A2A
+}
+
+docs {
+  Resultado 1: el coordinador se presenta y dice qué agentes tiene y qué sabe cada uno.
+}

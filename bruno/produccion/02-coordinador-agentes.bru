@@ -1,0 +1,21 @@
+meta {
+  name: 02 · coordinador agentes
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{coordinador}}/agentes
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.agentes: isDefined
+}
+
+docs {
+  Muestra las fichas que el coordinador leyó de `URLS_AGENTES`: nombre, endpoint A2A,
+  estado y skills de cada agente.
+}

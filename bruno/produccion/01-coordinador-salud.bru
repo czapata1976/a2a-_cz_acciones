@@ -1,0 +1,22 @@
+meta {
+  name: 01 · coordinador salud
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{coordinador}}/salud
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.ok: eq true
+  res.body.agentes: isDefined
+}
+
+docs {
+  Público, sin clave. Debe listar `agente_cz_A2A` y `agente_bryhan` como `disponible`
+  y decir qué memoria usa (`MemorySaver en proceso`).
+}

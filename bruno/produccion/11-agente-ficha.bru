@@ -1,0 +1,24 @@
+meta {
+  name: 11 · agente ficha
+  type: http
+  seq: 11
+}
+
+get {
+  url: {{agente}}/.well-known/agent-card.json
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq agente_cz_A2A
+  res.body.description: contains NO ejecuta
+  res.body.skills: isDefined
+  res.body.authentication: isDefined
+}
+
+docs {
+  Resultado 6: la ficha es pública, dice qué hace y qué **no** hace, y publica su dirección
+  en la nube (`url`).
+}

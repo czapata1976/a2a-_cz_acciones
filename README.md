@@ -245,8 +245,25 @@ texto = "\n".join(partes)
 
 ### Con la colección Bruno
 
-`bruno/` sirve para probar la ficha y el envío; el entorno `local` apunta al puerto 2029. Agrega la
-cabecera `X-Agente-Clave` en `message-send` cuando uses el servidor protegido.
+La carpeta `bruno/produccion/` tiene las 16 pruebas de la entrega con sus aserciones (ficha, salud,
+`message/send`, 401 sin clave, Telegram y las preguntas del coordinador). Los seis `.bru` de la raíz
+son las pruebas sueltas del servidor `langgraph dev` y usan el entorno `local`.
+
+```powershell
+# Las claves nunca van en la colección: se leen del entorno del sistema.
+$env:COORDINADOR_CLAVE = "<clave-del-coordinador>"
+$env:AGENTE_CLAVE      = "<clave-del-agente>"
+$env:TELEGRAM_SECRET   = "<secreto-del-canal>"
+
+Push-Location .\bruno
+npx --yes @usebruno/cli run produccion --env nube              # contra Heroku
+npx --yes @usebruno/cli run produccion --env local-produccion  # contra 8120 y 2029
+Pop-Location
+```
+
+Resultado esperado: `16 requests`, `44 assertions`, `PASS`. Ojo: el CLI **no entra en subcarpetas**
+cuando se lanza con `run .`; hay que apuntar a `produccion`. En la interfaz de Bruno basta abrir la
+carpeta `bruno/` y elegir el entorno `nube`.
 
 ### Registrar esta copia en el orquestador del grupo
 
@@ -572,6 +589,7 @@ mi-agente-czz/
 ├── Procfile · .python-version · .slugignore   ← despliegue en Heroku
 ├── whatsapp/            src/*.mjs · test/internal.test.mjs   ← puente Node/Baileys
 ├── bruno/               0-assistant-id · agent-card · 1-configurar-tarjeta · message-send
+│                        produccion/ 01..16 (ficha, salud, send, 401, Telegram, coordinador)
 ├── tunel_cloudflare.ps1 · tunel_cloudflare.py
 ├── tests/               test_a2a_czz.py · test_servidor_agente.py · test_coordinador.py · test_datos_taller.py · test_canales.py · test_web.py
 ├── evidencias/          verificacion_resultados.txt · saltos_coordinador.txt · agente_apagado.txt

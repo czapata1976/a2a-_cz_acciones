@@ -1,0 +1,33 @@
+meta {
+  name: 07 · agente de otro grupo
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{coordinador}}/chat
+  body: json
+  auth: none
+}
+
+headers {
+  X-Coordinador-Clave: {{process.env.COORDINADOR_CLAVE}}
+}
+
+body:json {
+  {
+    "mensaje": "Bryhan automatizando procesos con datos",
+    "cliente": "{{cliente}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.motivo: eq ok
+  res.body.agente: eq agente_bryhan
+}
+
+docs {
+  Extra del taller: el coordinador también usa el agente de otro grupo (`agente_bryhan`),
+  sumado por su dirección pública en `URLS_AGENTES`.
+}

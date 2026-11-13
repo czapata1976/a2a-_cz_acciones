@@ -1,0 +1,33 @@
+meta {
+  name: 10 · mensaje que no es texto
+  type: http
+  seq: 10
+}
+
+post {
+  url: {{coordinador}}/chat
+  body: json
+  auth: none
+}
+
+headers {
+  X-Coordinador-Clave: {{process.env.COORDINADOR_CLAVE}}
+}
+
+body:json {
+  {
+    "mensaje": { "foto": "archivo.jpg" },
+    "cliente": "{{cliente}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.motivo: eq no_texto
+  res.body.respuesta: contains No puedo leer
+}
+
+docs {
+  Un mensaje que no es texto se responde con que no se puede leer; no se inventa contenido.
+  Por el canal, lo mismo pasa con una foto o un sticker.
+}

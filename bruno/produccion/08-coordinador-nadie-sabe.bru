@@ -1,0 +1,33 @@
+meta {
+  name: 08 · nadie sabe
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{coordinador}}/chat
+  body: json
+  auth: none
+}
+
+headers {
+  X-Coordinador-Clave: {{process.env.COORDINADOR_CLAVE}}
+}
+
+body:json {
+  {
+    "mensaje": "¿Cuál es el precio del arriendo de oficinas en Recoleta?",
+    "cliente": "{{cliente}}"
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.motivo: eq ninguno
+  res.body.agente: isNull
+}
+
+docs {
+  Resultado 3: nadie del equipo sabe. Debe decir «No tengo un agente para eso» y listar lo que
+  el equipo sí cubre, sin inventar una respuesta.
+}

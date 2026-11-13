@@ -1,0 +1,21 @@
+meta {
+  name: 12 · agente salud
+  type: http
+  seq: 12
+}
+
+get {
+  url: {{agente}}/salud
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.ok: eq true
+  res.body.clave_configurada: eq true
+}
+
+docs {
+  Público: informa que el agente está disponible y que tiene clave configurada.
+}
