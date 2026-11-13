@@ -1,10 +1,10 @@
 Coordinador: https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com
 Agente: https://agente-cz-acciones-50f663cbb84c.herokuapp.com
-Fecha: 2026-11-12T21:46:45
+Fecha: 2026-11-12T21:54:55
 
 [1] Escribimos «hola» por el canal (API del coordinador)
     Debía:  responde el coordinador y dice qué agentes tiene
-    Pasó:   200 · Soy el coordinador del equipo A2A. Puedo preguntar a estos agentes: - agente_cz_A2A: Analizar una acción; Explicar los criterios de inversión  Escribe tu pregun
+    Pasó:   200 · Soy el coordinador del equipo A2A. Puedo preguntar a estos agentes: - agente_cz_A2A: Analizar una acción; Explicar los criterios de inversión - agente_bryhan: p
     Estado: OK
 
 [2] Pregunta de la skill del integrante
@@ -20,13 +20,13 @@ Fecha: 2026-11-12T21:46:45
 
 [4] Cifras, fechas y unidades de un agente
     Debía:  lo que dijo el agente llega igual: sin cambiar números ni supuestos
-    Pasó:   11 cifras en el texto del agente (['342.10', '331.152', '31,4', '1,87']) · el coordinador lo devuelve intacto: True
+    Pasó:   16 cifras en el texto del agente (['342.1', '331.152', '31,4', '1,87']) · el coordinador lo devuelve intacto: True
     Estado: OK
 
 [5] Continuidad y separación de conversaciones
     Debía:  recuerda lo anterior en el mismo hilo y no mezcla otro cliente
-    Pasó:   mismo hilo → ok (agente_cz_A2A) · otro hilo → ninguno
-    Estado: OK
+    Pasó:   mismo hilo → ninguno (None) · otro hilo → ninguno
+    Estado: REVISAR
 
 [6] Ficha pública del agente
     Debía:  dice qué hace, qué no hace y publica su dirección
@@ -35,7 +35,7 @@ Fecha: 2026-11-12T21:46:45
 
 [7] Mensaje directo al agente con su clave
     Debía:  responde por sí solo, sin pasar por el coordinador
-    Pasó:   estado=completed · 1010 caracteres
+    Pasó:   estado=completed · 1307 caracteres
     Estado: OK
 
 [8] Llamadas sin clave

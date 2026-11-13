@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import hmac
 import logging
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import BackgroundTasks, FastAPI, Request
@@ -48,6 +49,9 @@ def crear_app(
             app.state.supervisor = Supervisor(app.state.fichas, settings.timeout_agente)
         else:
             app.state.supervisor = supervisor
+        app.state.ultima_lectura = (
+            0.0 if any(ficha.estado != "disponible" for ficha in app.state.fichas) else time.monotonic()
+        )
         logger.info(
             "Coordinador listo con %s agente(s): %s",
             len(app.state.fichas),
@@ -72,6 +76,29 @@ def crear_app(
         recibido = (request.headers.get("x-telegram-bot-api-secret-token") or "").strip()
         return bool(recibido) and hmac.compare_digest(recibido, settings.telegram_secret)
 
+    REFRESCO_MINIMO = 15.0
+
+    async def refrescar_si_hace_falta(app: FastAPI) -> None:
+        """Vuelve a leer las fichas si alguna quedó marcada como no disponible.
+
+        Sin esto, un agente que estaba caído al arrancar el coordinador quedaría descartado para
+        siempre, aunque volviera a estar arriba.
+        """
+        fichas_actuales = getattr(app.state, "fichas", []) or []
+        if all(ficha.estado == "disponible" for ficha in fichas_actuales):
+            return
+        if time.monotonic() - getattr(app.state, "ultima_lectura", 0.0) < REFRESCO_MINIMO:
+            return
+        try:
+            nuevas = await leer_fichas(settings.agentes, timeout=min(8.0, settings.timeout_agente))
+        except Exception:  # noqa: BLE001 - se conserva la última lectura
+            logger.warning("No pude refrescar las fichas; sigo con la última lectura")
+            return
+        app.state.fichas = nuevas
+        app.state.supervisor.fichas = nuevas
+        app.state.ultima_lectura = time.monotonic()
+        logger.info("Fichas refrescadas: %s", ", ".join(f"{f.nombre}={f.estado}" for f in nuevas))
+
     # --- consulta directa por API ----------------------------------------
     @app.post("/chat")
     async def chat(datos: Consulta, request: Request):
@@ -82,6 +109,7 @@ def crear_app(
         if not isinstance(datos.mensaje, str) or not datos.mensaje.strip():
             return {"respuesta": NO_LEIBLE, "agente": None, "motivo": "no_texto", "saltos": []}
 
+        await refrescar_si_hace_falta(app)
         resultado = await app.state.supervisor.responder(datos.cliente or "api", datos.mensaje.strip())
         if settings.saltos:
             for salto in resultado.saltos:

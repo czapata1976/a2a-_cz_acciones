@@ -242,6 +242,22 @@ def test_prefiere_artefactos_sobre_status():
     assert a2a._texto_de(resultado) == "texto completo"
 
 
+def test_recupera_un_agente_que_estaba_caido_al_arrancar(monkeypatch, consultar):
+    # la ficha se leyó cuando el agente estaba abajo: el coordinador debe reintentar la lectura
+    caida = ficha_acciones()
+    caida.estado = "no disponible"
+    supervisor = Supervisor([caida], consultar=consultar)
+
+    async def leer_ahora(entradas, timeout=15.0):
+        return [ficha_acciones()]
+
+    monkeypatch.setattr("coordinador.main.leer_fichas", leer_ahora)
+    with TestClient(crear_app(settings(), [caida], supervisor)) as prueba:
+        datos = preguntar(prueba, "Analiza NVDA en US para un perfil moderado.").json()
+        assert datos["motivo"] == "ok"
+        assert datos["agente"] == "agente_acciones"
+
+
 # --- agente caído ---------------------------------------------------------
 def test_agente_caido_avisa_y_el_resto_sigue():
     consultar = ConsultarFalso(error=a2a.ErrorAgente("agente_acciones no respondió en 30 s."))
