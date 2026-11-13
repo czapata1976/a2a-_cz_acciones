@@ -234,10 +234,11 @@ def derivar_a_cumplimiento(motivo: str) -> str:
         "Fuera de alcance: contingencias normativas, tributarias, legales o regulatorias.\n"
         f"Motivo: {detalle}.\n"
         "Cómo responder al usuario: revisa el bloque `<equipo_a2a>` de este turno. Si incluye un agente "
-        "de cumplimiento o auditoría, nómbralo y explica que esa revisión la hace él (puede buscar la "
-        "empresa por razón social o nombre de fantasía, sin RUT). Si el bloque no trae ese agente, o no "
-        "hay bloque, di solo que la consulta queda fuera de tu alcance y que el equipo no tiene un agente "
-        "de cumplimiento disponible. Nunca supongas ni inventes un agente de cumplimiento."
+        "de cumplimiento o de auditoría, nómbralo y explica que esa revisión la hace él (puede buscar la "
+        "empresa por razón social o nombre de fantasía, sin RUT) y no agregues nada más sobre el tema. "
+        "Si el bloque no trae ninguno de esos agentes, o no hay bloque, di solo que la consulta queda "
+        "fuera de tu alcance y que el equipo no tiene un agente de cumplimiento disponible. Nunca "
+        "supongas ni inventes un agente de cumplimiento."
     )
 
 
