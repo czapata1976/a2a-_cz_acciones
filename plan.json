@@ -1,0 +1,211 @@
+{
+  "proyecto": "Copia autónoma · agente_cz_A2A (Carlos Zapata)",
+  "grupos": {
+    "identidad-a2a": "Grafo, puerto y entorno propios para convivir con agente_czz sin colisiones.",
+    "autonomia": "Prompt de servicio A2A: responde en un turno y no bloquea cuando falta contexto secundario.",
+    "contrato-a2a": "Tarjeta, descubrimiento y message/send verificados como los ve otro agente.",
+    "consumo-por-otro-agente": "Documentación, colección Bruno y notebook con la delegación desde un supervisor.",
+    "canales": "Telegram y WhatsApp operativos como clientes A2A del agente.",
+    "entorno-independiente": "Entorno virtual, .env y dependencias Node propios: la copia no depende de mi-agente-cz."
+  },
+  "tareas": [
+    {
+      "id": "d01",
+      "grupo": "identidad-a2a",
+      "nombre": "Identidad A2A única: grafo agente_cz_A2A y puerto 2029",
+      "estado": "hecho",
+      "depende_de": [],
+      "entregables": [
+        "langgraph.json",
+        "src/agente_acciones/graph.py",
+        ".env.example"
+      ],
+      "verificacion": [
+        "langgraph.json registra un único grafo: agente_cz_A2A -> ./src/agente_acciones/graph.py:graph",
+        "graph.py usa name='agente_cz_A2A' y mantiene el grafo sin checkpointer",
+        ".env.example apunta a http://127.0.0.1:2029"
+      ],
+      "evidencia": "langgraph.json con 'agente_cz_A2A'; create_agent(..., name='agente_cz_A2A') sin checkpointer; .env y .env.example con A2A_CZZ_URL=http://127.0.0.1:2029."
+    },
+    {
+      "id": "d02",
+      "grupo": "autonomia",
+      "nombre": "Prompt de servicio A2A autónomo",
+      "estado": "hecho",
+      "depende_de": [
+        "d01"
+      ],
+      "entregables": [
+        "src/agente_acciones/prompts.py"
+      ],
+      "verificacion": [
+        "SYSTEM_AGENTE incluye el bloque 'Servicio A2A' con la regla de responder en un solo turno",
+        "La regla de perfil de riesgo pide el dato al final en vez de bloquear la respuesta"
+      ],
+      "evidencia": "prompts.py: bloque 'Servicio A2A' antes del método obligatorio y regla 'condiciona la recomendación a esos datos y pídelos al final'. Prueba real: la consulta 'Analiza NVDA en US. Me interesa saber si conviene entrar ahora' respondió completed en un turno con datos, fundamentales, tesis y la pregunta por el perfil al final."
+    },
+    {
+      "id": "d03",
+      "grupo": "contrato-a2a",
+      "nombre": "Servidor en el puerto 2029 con tarjeta y message/send",
+      "estado": "hecho",
+      "depende_de": [
+        "d01",
+        "d02"
+      ],
+      "entregables": [
+        "bruno/0-assistant-id.bru",
+        "bruno/agent-card.bru",
+        "bruno/message-send.bru",
+        "tests/test_a2a_czz.py"
+      ],
+      "verificacion": [
+        "GET http://127.0.0.1:2029/ok responde 200",
+        "POST /assistants/search {'graph_id':'agente_cz_A2A'} devuelve el assistant_id",
+        "GET /.well-known/agent-card.json?assistant_id=<uuid> anuncia name=agente_cz_A2A y la url /a2a/<uuid>",
+        "pytest tests -q en verde con el servidor arriba"
+      ],
+      "evidencia": "GET /ok devolvió {ok:true}; assistant_id=a4129127-cf48-5436-b0ca-71a49c148e3d; tarjeta name=agente_cz_A2A con url http://127.0.0.1:2029/a2a/<uuid>; pytest tests -q: 2 passed in 8.09s."
+    },
+    {
+      "id": "d04",
+      "grupo": "consumo-por-otro-agente",
+      "nombre": "Contrato A2A documentado para otro agente",
+      "estado": "hecho",
+      "depende_de": [
+        "d01"
+      ],
+      "entregables": [
+        "README.md",
+        "AGENTS.md",
+        "blueprint.md"
+      ],
+      "verificacion": [
+        "README.md documenta los tres pasos (assistants/search, agent-card, message/send) con un ejemplo ejecutable",
+        "README.md explica cómo registrar el puerto 2029 en servicio-fastapi"
+      ],
+      "evidencia": "README.md: sección 'Contrato A2A', ejemplo con httpx y bloque 'Registrar esta copia en el orquestador del grupo'."
+    },
+    {
+      "id": "d05",
+      "grupo": "consumo-por-otro-agente",
+      "nombre": "Notebook con descubrimiento, envío y delegación desde un supervisor",
+      "estado": "hecho",
+      "depende_de": [
+        "d03"
+      ],
+      "entregables": [
+        "notebooks/a2a-test.ipynb"
+      ],
+      "verificacion": [
+        "El notebook corre de arriba abajo con el servidor del 2029 levantado",
+        "message/send devuelve status.state = completed y la respuesta trae el precio simulado de AAPL"
+      ],
+      "evidencia": "Ejecutado con nbclient contra el puerto 2029: 6 celdas de código con salida guardada; AAPL a 342.10 USD con fecha de corte 2026-11-07; el segundo turno reutiliza el contextId y el tercero delega la comparación NVDA/MSFT."
+    },
+    {
+      "id": "d06",
+      "grupo": "entorno-independiente",
+      "nombre": "Entorno virtual, .env y dependencias Node propios",
+      "estado": "hecho",
+      "depende_de": [],
+      "entregables": [
+        ".venv/",
+        ".env",
+        "requirements.txt",
+        "package.json",
+        "node_modules/"
+      ],
+      "verificacion": [
+        "python -c 'import langgraph, langchain, httpx, fastapi' funciona con .venv\\Scripts\\python.exe",
+        "npm install instala Baileys, pino y qrcode en el proyecto",
+        "El servicio arranca sin leer archivos de mi-agente-cz"
+      ],
+      "evidencia": "venv con Python 3.12.7 y pip check sin conflictos; npm instaló 99 paquetes y los tres módulos importan; el agente y los canales arrancaron desde mi-agente-czz."
+    },
+    {
+      "id": "d07",
+      "grupo": "consumo-por-otro-agente",
+      "nombre": "Ficha del servicio publicada en la Agent Card",
+      "estado": "hecho",
+      "depende_de": [
+        "d03"
+      ],
+      "entregables": [
+        "scripts/configurar_tarjeta.py"
+      ],
+      "verificacion": [
+        "La tarjeta devuelve la descripción del servicio, no el texto genérico '<grafo> assistant'"
+      ],
+      "evidencia": "scripts/configurar_tarjeta.py ejecutado: tarjeta name=agente_cz_A2A con la descripción 'Servicio A2A autónomo de Carlos Zapata...' y endpoint A2A en /a2a/<uuid>."
+    },
+    {
+      "id": "d08",
+      "grupo": "canales",
+      "nombre": "Canal Telegram con webhook y polling",
+      "estado": "hecho",
+      "depende_de": [
+        "d03",
+        "d06"
+      ],
+      "entregables": [
+        "canales/telegram.py",
+        "scripts/configurar_telegram.py",
+        "scripts/telegram_polling.py",
+        "tests/test_canales.py"
+      ],
+      "verificacion": [
+        "getMe confirma el bot y el webhook rechaza un secreto inválido (403)",
+        "Un update firmado devuelve 200 y la respuesta del agente real llega al chat",
+        "TELEGRAM_ENVIO=log permite probar el canal sin enviar mensajes",
+        "pytest tests\\test_canales.py -q en verde"
+      ],
+      "evidencia": "getMe ok con @a2a_czz_bot; webhook con secreto inválido 403; update firmado 200 y respuesta real con PER 35.2 de MSFT; 14 pruebas de canales en verde."
+    },
+    {
+      "id": "d09",
+      "grupo": "canales",
+      "nombre": "Canal WhatsApp con puente Baileys",
+      "estado": "hecho",
+      "depende_de": [
+        "d03",
+        "d06"
+      ],
+      "entregables": [
+        "canales/whatsapp.py",
+        "whatsapp/src/*.mjs",
+        "scripts/servidor_canales.py",
+        "package.json"
+      ],
+      "verificacion": [
+        "El puente escucha en 127.0.0.1:18082 y exige WHATSAPP_SECRET",
+        "Conectar en modo QR genera un QR y /whatsapp/qr.png devuelve una imagen",
+        "POST /whatsapp/mensaje devuelve el análisis del agente real",
+        "npm run whatsapp:test en verde"
+      ],
+      "evidencia": "Puente arriba en 18082; /whatsapp/modo qr + /whatsapp/conectar generaron el QR en 2 s y /qr.png devolvió 5.354 bytes; /whatsapp/mensaje con el secreto devolvió el análisis de AAPL (PER 31,4) del agente; 8 pruebas Node en verde. La vinculación real requiere escanear el QR con el teléfono."
+    },
+    {
+      "id": "d10",
+      "grupo": "canales",
+      "nombre": "Documentación y secretos de los canales",
+      "estado": "hecho",
+      "depende_de": [
+        "d08",
+        "d09"
+      ],
+      "entregables": [
+        "README.md",
+        "AGENTS.md",
+        "blueprint.md",
+        ".env.example",
+        ".gitignore"
+      ],
+      "verificacion": [
+        "README.md documenta puertos, endpoints, vinculación de WhatsApp y webhook/polling de Telegram",
+        ".env.example solo lleva claves vacías; .gitignore excluye node_modules, whatsapp/.runtime y logs"
+      ],
+      "evidencia": "README.md con la sección 'Canales: Telegram y WhatsApp'; AGENTS.md con las reglas 10-12; .gitignore con node_modules/, whatsapp/.runtime/ y logs/*.log*."
+    }
+  ]
+}

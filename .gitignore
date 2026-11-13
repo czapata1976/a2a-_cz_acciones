@@ -1,0 +1,24 @@
+.env
+.venv/
+.venv-notebook/
+__pycache__/
+*.pyc
+.langgraph_api/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# logs locales del servidor (se regeneran en cada arranque)
+logs/*.log*
+
+# canales: dependencias Node, sesion de WhatsApp y QR locales
+node_modules/
+whatsapp/.runtime
+qr*.png
+
+# chat web: base local con conversaciones y equipo
+web/.runtime/
+
+# túnel de Cloudflare: la URL es temporal y no debe versionarse
+tunel.url
+tunel.pid
+cloudflared*.log

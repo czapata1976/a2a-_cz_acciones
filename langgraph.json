@@ -1,0 +1,7 @@
+{
+  "dependencies": ["."],
+  "graphs": {
+    "agente_cz_A2A": "./src/agente_acciones/graph.py:graph"
+  },
+  "env": ".env"
+}

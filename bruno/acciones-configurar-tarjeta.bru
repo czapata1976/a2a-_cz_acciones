@@ -1,0 +1,23 @@
+meta {
+  name: acciones-configurar-tarjeta
+  type: http
+  seq: 1
+}
+
+patch {
+  url: {{base_url}}/assistants/{{assistant}}
+  body: json
+  auth: none
+}
+
+body:json {
+  {
+    "name": "agente_cz_A2A",
+    "description": "Servicio A2A autónomo de Carlos Zapata: consulta el precio, los datos de mercado y los fundamentales de una acción (AAPL, MSFT, SQM-B, FALABELLA) y busca antecedentes en sus apuntes. No ejecuta pagos ni inversiones."
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq agente_cz_A2A
+}

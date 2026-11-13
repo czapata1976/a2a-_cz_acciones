@@ -1,0 +1,19 @@
+{
+  "name": "agente-cz-a2a-canales",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Puente WhatsApp (Baileys) de los canales de agente_cz_A2A",
+  "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
+  "scripts": {
+    "whatsapp:start": "node --env-file=.env whatsapp/src/main.mjs",
+    "whatsapp:test": "node --test --test-concurrency=1 whatsapp/test/*.test.mjs"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "pino": "10.1.0",
+    "qrcode": "1.5.4"
+  }
+}

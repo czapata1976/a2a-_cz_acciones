@@ -1,0 +1,17 @@
+.venv
+.venv-notebook
+node_modules
+whatsapp/.runtime
+web/.runtime
+logs
+evidencias
+notebooks
+bruno
+tests
+.pytest_cache
+.ipynb_checkpoints
+*.log
+tunel.url
+tunel.pid
+cloudflared*.log
+Detalle taller A2A.pdf

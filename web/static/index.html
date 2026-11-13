@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consola A2A · agente_cz_A2A</title>
+  <link rel="stylesheet" href="/static/estilos.css?v=5">
+</head>
+<body>
+  <section id="login" class="login" hidden>
+    <form id="form-login" class="tarjeta-login">
+      <h1>Consola A2A</h1>
+      <p class="sutil">Equipo de agentes del proyecto</p>
+      <label for="login-usuario">Usuario</label>
+      <input id="login-usuario" name="usuario" autocomplete="username" required>
+      <label for="login-clave">Clave</label>
+      <input id="login-clave" name="clave" type="password" autocomplete="current-password" required>
+      <button type="submit">Entrar</button>
+      <p id="login-error" class="error" role="alert"></p>
+    </form>
+  </section>
+
+  <div id="app" class="disposicion" hidden>
+    <aside class="lateral">
+      <div class="marca">
+        <span class="punto"></span>
+        <div>
+          <strong>Consola A2A</strong>
+          <span id="marca-agente" class="sutil">agente_cz_A2A</span>
+        </div>
+      </div>
+
+      <section class="bloque">
+        <header class="titulo-panel">
+          <h2>Conversaciones</h2>
+          <button id="nueva-charla" class="compacto" type="button">+ Nueva</button>
+        </header>
+        <ul id="lista-charlas" class="lista"></ul>
+      </section>
+
+      <section class="bloque">
+        <header class="titulo-panel">
+          <h2>Equipo A2A</h2>
+          <span id="contador-equipo" class="chip">0/4</span>
+        </header>
+        <ul id="lista-agentes" class="lista"></ul>
+        <form id="form-agente" class="fila-agregar">
+          <input id="url-agente" name="url" placeholder="https://otro-agente/…" inputmode="url" autocomplete="off">
+          <button type="submit" title="Agregar agente" aria-label="Agregar agente">+</button>
+        </form>
+        <p id="agente-error" class="error compacto-texto" role="alert"></p>
+        <p class="sutil compacto-texto">Hasta 4 agentes públicos. El agente local sintetiza el aporte de todos.</p>
+      </section>
+    </aside>
+
+    <main class="chat">
+      <header class="barra">
+        <div>
+          <h1>Chat del proyecto</h1>
+          <p id="sesion-texto" class="sutil"></p>
+        </div>
+        <button id="salir" class="secundario" type="button">Salir</button>
+      </header>
+
+      <div id="hilo" class="hilo" aria-live="polite"></div>
+
+      <section class="ejemplos" aria-label="Preguntas de ejemplo">
+        <span class="ejemplos-titulo">Prueba con</span>
+        <div id="lista-ejemplos" class="chips"></div>
+      </section>
+
+      <form id="form-mensaje" class="redactor">
+        <textarea id="texto" rows="2" maxlength="8000"
+          placeholder="Pregunta al equipo… (Enter envía · Shift+Enter salto de línea)"></textarea>
+        <button type="submit" id="enviar">Enviar</button>
+      </form>
+    </main>
+
+    <aside class="flujo">
+      <header class="titulo-panel">
+        <h2>Flujo A2A</h2>
+        <span id="flujo-resumen" class="chip">sin turnos</span>
+      </header>
+      <p id="flujo-vacio" class="sutil">Envía un mensaje para ver el recorrido: descubrimiento de tarjetas, consultas en paralelo y síntesis.</p>
+      <ol id="lista-flujo" class="linea-tiempo"></ol>
+    </aside>
+  </div>
+
+  <script src="/static/app.js?v=6"></script>
+</body>
+</html>
