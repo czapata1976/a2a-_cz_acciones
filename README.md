@@ -515,23 +515,19 @@ lo recicla al menos cada 24 h, la sesión vinculada se guarda cifrada en Postgre
 `WHATSAPP_SECRET`): así no hay que volver a escanear el QR en cada deploy. `GET /salud` informa
 `canal_whatsapp` y `puente_whatsapp.activo`.
 
-Para vincular el teléfono (una sola vez por sesión perdida):
+Para vincular el teléfono (una sola vez por sesión perdida), desde tu máquina con `CANALES_TOKEN` en
+el entorno:
 
 ```powershell
-$c = "https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com"
-$t = @{ "X-Canales-Token" = "<CANALES_TOKEN>" }
-# 1. elegir QR (por defecto el puente pide código por teléfono)
-Invoke-RestMethod -Method Post -Uri "$c/whatsapp/modo" -Headers $t `
-  -ContentType "application/json" -Body '{"modo":"qr"}'
-# 2. abrir la sesión
-Invoke-RestMethod -Method Post -Uri "$c/whatsapp/conectar" -Headers $t
-# 3. ver el QR y escanearlo desde WhatsApp > Dispositivos vinculados
-Start-Process "$c/whatsapp/qr.png`?token=<CANALES_TOKEN>"
+# guarda el QR en qr-whatsapp.png usando la cabecera X-Canales-Token (no ?token=, que quedaría en los logs)
+.venv\Scripts\python.exe scripts\qr_whatsapp.py --url https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com --conectar
+# escanéalo desde WhatsApp > Dispositivos vinculados; si expira, repite el comando
 ```
 
-Para vincular con código: `POST /whatsapp/codigo` con `{"telefono":"56911112222"}` (sin `+` ni
-separadores) y luego el código en el teléfono. Estado y cierre:
-`GET /whatsapp/estado`, `POST /whatsapp/desconectar`.
+También se puede hacer a mano: `POST /whatsapp/modo` con `{"modo":"qr"}`, `POST /whatsapp/conectar`,
+`GET /whatsapp/qr.png` (con la cabecera) y `GET /whatsapp/estado`. Para vincular con código:
+`POST /whatsapp/codigo` con `{"telefono":"56911112222"}` (sin `+` ni separadores) y luego el código en
+el teléfono. `POST /whatsapp/desconectar` cierra la sesión.
 
 En local el camino sigue siendo `scripts/servidor_canales.py` (puente en el puerto 18082), con
 `WHATSAPP_PUENTE=false` y `WHATSAPP_SESION_DURABLE=false`: la sesión queda en
@@ -548,7 +544,7 @@ En local el camino sigue siendo `scripts/servidor_canales.py` (puente en el puer
 | GET     | `/ok` · `/salud`                                                  | Salud del servicio y del agente     |
 
 Si defines `CANALES_TOKEN`, la gestión exige `X-Canales-Token` (o `?token=` para abrir el QR en el
-navegador).
+navegador; `scripts\qr_whatsapp.py` usa la cabecera porque la URL queda en los registros del router).
 
 ### Pruebas
 

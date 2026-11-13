@@ -119,7 +119,7 @@ mi-agente-czz/
 ├── coordinador/         main.py  config.py  supervisor.py  fichas.py  a2a.py  canal.py
 ├── canales/             main.py  telegram.py  whatsapp.py  agente.py  config.py  puente.py  errores.py
 ├── web/                 main.py  config.py  auth.py  almacen.py  a2a.py  orquestador.py · static/
-├── scripts/             servidor_agente.py · servidor_coordinador.py · probar_coordinador.py · verificar_entrega.py · heroku_web.py · servidor_canales.py · servidor_web.py · clave_web.py
+├── scripts/             servidor_agente.py · servidor_coordinador.py · probar_coordinador.py · verificar_entrega.py · heroku_web.py · servidor_canales.py · servidor_web.py · clave_web.py · qr_whatsapp.py
 ├── Procfile · .python-version · .slugignore
 ├── whatsapp/            src/*.mjs · test/internal.test.mjs (puente Node/Baileys)
 ├── bruno/               0-assistant-id · 1-configurar-tarjeta · agent-card · message-send · produccion/
