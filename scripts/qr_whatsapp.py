@@ -1,8 +1,8 @@
 """Trae el QR del canal de WhatsApp a un PNG local.
 
-Usa la cabecera `X-Canales-Token`, no `?token=`: la URL queda en los registros del router de Heroku
-y un token ah? es un token filtrado. Con `--conectar` adem?s pone el modo QR y abre la sesi?n, que es
-lo que hace falta la primera vez o cuando la sesi?n se perdi?.
+Usa la cabecera `X-Canales-Token`, no `?token=`: la URL queda en los registros del router de Heroku y
+un token ah? es un token filtrado. Con `--conectar` adem?s pone el modo QR y abre la sesi?n, que es lo
+que hace falta la primera vez o cuando la sesi?n se perdi?.
 
     .venv\\Scripts\\python.exe scripts\\qr_whatsapp.py --conectar
     .venv\\Scripts\\python.exe scripts\\qr_whatsapp.py --url https://<app>.herokuapp.com --conectar
@@ -13,6 +13,7 @@ import argparse
 import base64
 import os
 import sys
+import time
 from pathlib import Path
 
 RAIZ = Path(__file__).resolve().parents[1]
@@ -20,6 +21,27 @@ if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
 from dotenv import load_dotenv  # noqa: E402
+
+INTENTOS_QR = 6
+ESPERA_QR = 2.0
+
+
+def _abrir_sesion(cliente, base: str) -> None:
+    """Pone modo QR y abre la sesi?n; si qued? un intento anterior, lo cierra primero."""
+    modo = cliente.post(f"{base}/whatsapp/modo", json={"modo": "qr"})
+    if modo.status_code == 409:
+        cliente.post(f"{base}/whatsapp/desconectar").raise_for_status()
+        time.sleep(1)
+        cliente.post(f"{base}/whatsapp/modo", json={"modo": "qr"}).raise_for_status()
+    else:
+        modo.raise_for_status()
+
+    conexion = cliente.post(f"{base}/whatsapp/conectar")
+    if conexion.status_code == 409:
+        cliente.post(f"{base}/whatsapp/desconectar").raise_for_status()
+        time.sleep(1)
+        conexion = cliente.post(f"{base}/whatsapp/conectar")
+    conexion.raise_for_status()
 
 
 def main() -> int:
@@ -38,22 +60,26 @@ def main() -> int:
     import httpx
 
     base = args.url.rstrip("/")
-    cabeceras = {"X-Canales-Token": args.token}
     try:
-        with httpx.Client(timeout=45, trust_env=False, headers=cabeceras) as cliente:
+        with httpx.Client(timeout=45, trust_env=False, headers={"X-Canales-Token": args.token}) as cliente:
             if args.conectar:
-                cliente.post(f"{base}/whatsapp/modo", json={"modo": "qr"}).raise_for_status()
-                cliente.post(f"{base}/whatsapp/conectar").raise_for_status()
+                _abrir_sesion(cliente, base)
             estado = cliente.get(f"{base}/whatsapp/estado")
             estado.raise_for_status()
             print("estado del puente:", estado.json())
-            datos = cliente.get(f"{base}/whatsapp/qr")
-            datos.raise_for_status()
+
+            imagen = ""
+            for intento in range(INTENTOS_QR):
+                datos = cliente.get(f"{base}/whatsapp/qr")
+                datos.raise_for_status()
+                imagen = (datos.json() or {}).get("imagen") or ""
+                if imagen:
+                    break
+                time.sleep(ESPERA_QR)
     except httpx.HTTPError as error:
         print(f"No pude consultar el QR: {error}")
         return 1
 
-    imagen = (datos.json() or {}).get("imagen")
     if not isinstance(imagen, str) or ";base64," not in imagen:
         print("Todav?a no hay QR: espera unos segundos y repite, o revisa `estado`.")
         return 1
