@@ -15,7 +15,7 @@ import pytest
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 
-from web import a2a, coordinador
+from web import a2a, coordinador, orquestador
 from web.almacen import Almacen, es_postgres
 from web.auth import crear_cookie, hash_clave
 from web.config import ConfiguracionInvalida, Settings, cargar_settings
@@ -626,6 +626,101 @@ def test_turno_guarda_conversacion(cliente: TestClient, sin_red):
     assert detalle["mensajes"][1]["texto"] == "síntesis del equipo"
     assert detalle["mensajes"][1]["flujo"]
     assert cliente.get("/api/charlas").json()[0]["mensajes"] == 2
+
+
+def test_si_el_agente_deriva_el_tema_se_entrega_la_respuesta_del_colega(cliente: TestClient, monkeypatch):
+    """Caso real: el agente del proyecto dice «fuera de alcance» y el colega ya respondió."""
+    entrar(cliente)
+
+    async def descubrir(base: str, timeout: float = 15.0, clave: str = '') -> a2a.Agente:
+        return agente(base)
+
+    async def enviar(instancia: a2a.Agente, texto: str, context_id: str, timeout: float = 180.0) -> str:
+        return "**No cumple.** Declaraciones al día: no. Multa 2025 de la CMF por entrega tardía de EEFF."
+
+    async def estado(base: str, timeout: float = 10.0) -> dict:
+        return {"ok": True, "agentes": [{"nombre": "agente_cz_A2A", "estado": "disponible"}]}
+
+    async def consultar(
+        base: str, clave: str, texto: str, cliente: str, agente: str = "", timeout: float = 180.0
+    ) -> dict:
+        negativa = (
+            "Fuera de alcance: contingencias normativas, tributarias, legales o regulatorias.\n"
+            "Motivo: la consulta pide evaluar cumplimiento."
+        )
+        return {
+            "respuesta": f"Respondió: agente_cz_A2A\n\n{negativa}",
+            "agente": "agente_cz_A2A",
+            "motivo": "ok",
+            "respuesta_agente": negativa,
+            "saltos": [],
+        }
+
+    monkeypatch.setattr(a2a, "descubrir", descubrir)
+    monkeypatch.setattr(a2a, "enviar", enviar)
+    monkeypatch.setattr(coordinador, "estado", estado)
+    monkeypatch.setattr(coordinador, "consultar", consultar)
+    cliente.post(
+        "/api/agentes", json={"url": "https://ale.example.com", "clave": "k"}, headers=CABECERAS
+    )
+    charla = cliente.post("/api/charlas", headers=CABECERAS).json()["id"]
+
+    datos = cliente.post(
+        f"/api/charlas/{charla}/mensaje",
+        json={"texto": "¿Cumple con la normativa la empresa 77.987.654-3?"},
+        headers=CABECERAS,
+    ).json()
+
+    # el usuario ve la respuesta del colega, con su texto intacto y a nombre de quién la dio
+    assert "No cumple" in datos["respuesta"]
+    assert "Multa 2025 de la CMF" in datos["respuesta"]
+    assert "agente-ale.example.com" in datos["respuesta"]
+    assert "Fuera de alcance" not in datos["respuesta"]
+    assert datos["error"] is None
+    assert "fuera de su alcance" in datos["flujo"][-1]["detalle"]
+
+
+def test_si_el_agente_deriva_y_nadie_respondio_se_respeta_su_negativa(cliente: TestClient, monkeypatch):
+    entrar(cliente)
+    negativa = "Fuera de alcance: contingencias normativas, tributarias, legales o regulatorias."
+
+    async def descubrir(base: str, timeout: float = 15.0, clave: str = '') -> a2a.Agente:
+        raise a2a.ErrorAgenteRemoto("sin tarjeta")
+
+    async def estado(base: str, timeout: float = 10.0) -> dict:
+        return {"ok": True, "agentes": [{"nombre": "agente_cz_A2A", "estado": "disponible"}]}
+
+    async def consultar(
+        base: str, clave: str, texto: str, cliente: str, agente: str = "", timeout: float = 180.0
+    ) -> dict:
+        return {
+            "respuesta": negativa, "agente": "agente_cz_A2A", "motivo": "ok",
+            "respuesta_agente": negativa, "saltos": [],
+        }
+
+    monkeypatch.setattr(a2a, "descubrir", descubrir)
+    monkeypatch.setattr(coordinador, "estado", estado)
+    monkeypatch.setattr(coordinador, "consultar", consultar)
+    cliente.post("/api/agentes", json={"url": "https://uno.example.com"}, headers=CABECERAS)
+    charla = cliente.post("/api/charlas", headers=CABECERAS).json()["id"]
+
+    datos = cliente.post(
+        f"/api/charlas/{charla}/mensaje", json={"texto": "¿Cuánto impuesto pago por NVDA?"},
+        headers=CABECERAS,
+    ).json()
+    assert datos["respuesta"] == negativa
+    assert datos["error"] is None
+
+
+def test_el_turno_pide_entregar_el_aporte_cuando_el_tema_queda_fuera_de_alcance():
+    peticion = orquestador.mensaje_de_sintesis(
+        "¿Cumple con la normativa la empresa 77.987.654-3?",
+        [(agente("https://ale.example.com"), "**No cumple.** Multa de la CMF.")],
+        "agente_cz_A2A",
+        [agente("https://ale.example.com")],
+    )
+    assert "<respuestas_agentes>" in peticion
+    assert "la respuesta del turno es la suya" in peticion
 
 
 def test_turno_sin_coordinador_avisa(cliente: TestClient, monkeypatch):

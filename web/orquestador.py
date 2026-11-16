@@ -23,8 +23,20 @@ def contexto_de(charla_id: str, clave: str) -> str:
     return str(uuid.uuid5(NS_CONTEXTOS, f"{charla_id}:{clave}"))
 
 
-def _evento(
-    tipo: str,
+MARCAS_FUERA_DE_ALCANCE = (
+    "contingencias normativas, tributarias, legales o regulatorias",
+    "contingencias normativas y tributarias",
+)
+"""Texto con el que el agente del proyecto declara el tema fuera de su alcance (su herramienta)."""
+
+
+def declaro_fuera_de_alcance(texto: str) -> bool:
+    """¿El cierre se limitó a declarar que el tema está fuera de su alcance?"""
+    plano = " ".join((texto or "").lower().split())
+    return any(marca in plano for marca in MARCAS_FUERA_DE_ALCANCE)
+
+
+def _evento(tipo: str,
     *,
     agente: str,
     url: str,
@@ -103,18 +115,28 @@ def mensaje_de_sintesis(
             f"<respuestas_agentes>\n{aportes}\n</respuestas_agentes>\n"
         )
 
-    bloques.append(
-        "Cómo responder:\n"
+    instrucciones = [
         "- Entrega una sola respuesta para el usuario: suma lo que aporten los demás a tu propio "
-        "análisis y mantén tu formato y la fecha de corte de los datos.\n"
+        "análisis y mantén tu formato y la fecha de corte de los datos."
+    ]
+    if respuestas:
+        instrucciones.append(
+            "- Si la consulta cae en un tema que tú no cubres (por ejemplo normativo o tributario) y un "
+            "colega del equipo ya la respondió en `<respuestas_agentes>`, la respuesta del turno es la "
+            "suya: entrégala completa, con sus cifras y su fecha de corte, atribuyéndola a ese agente. "
+            "No respondas solo con tu aviso de fuera de alcance ni la resumas hasta dejarla sin "
+            "contenido."
+        )
+    instrucciones.extend([
         "- Si pregunta quién forma el equipo o qué hace un agente, respóndelo con el bloque "
-        "`<equipo_a2a>` (nombre y especialidad) y apóyate en el aporte de ese agente si lo hay.\n"
+        "`<equipo_a2a>` (nombre y especialidad) y apóyate en el aporte de ese agente si lo hay.",
         "- Si menciona a un agente del equipo con otra grafía o con una errata (por ejemplo «bryan» por "
-        "«bryhan»), entiende que habla de ese agente del equipo.\n"
+        "«bryhan»), entiende que habla de ese agente del equipo.",
         "- Si la consulta necesita un agente que no está en `<equipo_a2a>` (por ejemplo cumplimiento "
-        "tributario), no lo inventes ni prometas su revisión: di que el equipo no tiene ese agente.\n"
-        "- Si nombra a alguien que no está en `<equipo_a2a>`, di que ese agente no está en el equipo."
-    )
+        "tributario), no lo inventes ni prometas su revisión: di que el equipo no tiene ese agente.",
+        "- Si nombra a alguien que no está en `<equipo_a2a>`, di que ese agente no está en el equipo.",
+    ])
+    bloques.append("Cómo responder:\n" + "\n".join(instrucciones))
     return "\n".join(bloques)
 
 
@@ -251,6 +273,19 @@ async def ejecutar(
         return {"respuesta": aportes, "flujo": flujo, "error": detalle}
 
     agente_texto = str(resultado.get("agente") or settings.agente_sintesis)
+    if respuestas and declaro_fuera_de_alcance(sintesis):
+        # El agente del proyecto se limitó a derivar el tema, pero un colega ya respondió: el turno
+        # entrega ese aporte tal cual (sin reescribirlo) en vez de la negativa.
+        flujo.append(_evento(
+            "sintesis", agente=f"coordinador · {agente_texto}", url=settings.coordinador_url,
+            rol="local", estado="ok", ms=segundos,
+            detalle=(
+                f"{agente_texto} declaró el tema fuera de su alcance; se entrega el aporte del "
+                f"equipo ({len(respuestas)})"
+            ),
+        ))
+        return {"respuesta": aportes, "flujo": flujo, "error": None}
+
     flujo.append(_evento(
         "sintesis", agente=f"coordinador · {agente_texto}", url=settings.coordinador_url,
         rol="local", estado="ok", ms=segundos,
