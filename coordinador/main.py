@@ -33,6 +33,14 @@ logger = logging.getLogger("coordinador.api")
 class Consulta(BaseModel):
     mensaje: object = Field(default=None, description="Texto de la consulta")
     cliente: str = Field(default="api", max_length=120, description="Identificador de la conversación")
+    agente: str | None = Field(
+        default=None,
+        max_length=200,
+        description=(
+            "Opcional: fija el agente del equipo que debe responder (nombre de su tarjeta o URL de "
+            "URLS_AGENTES). Sin este campo, el supervisor elige."
+        ),
+    )
 
 
 def crear_app(
@@ -158,7 +166,9 @@ def crear_app(
             return {"respuesta": NO_LEIBLE, "agente": None, "motivo": "no_texto", "saltos": []}
 
         await refrescar_si_hace_falta(app)
-        resultado = await app.state.supervisor.responder(datos.cliente or "api", datos.mensaje.strip())
+        resultado = await app.state.supervisor.responder(
+            datos.cliente or "api", datos.mensaje.strip(), datos.agente or ""
+        )
         if settings.saltos:
             for salto in resultado.saltos:
                 logger.info("[salto] %-9s %s", salto["paso"], salto["detalle"])

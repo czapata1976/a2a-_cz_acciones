@@ -50,7 +50,7 @@
           <button type="submit" title="Agregar agente" aria-label="Agregar agente">+</button>
         </form>
         <p id="agente-error" class="error compacto-texto" role="alert"></p>
-        <p class="sutil compacto-texto">Hasta 4 agentes públicos. Si la ficha pide una clave (por ejemplo <code>X-API-Key</code>), pégala aquí y quedará guardada con el agente. El agente local sintetiza el aporte de todos.</p>
+        <p class="sutil compacto-texto">Hasta 4 agentes públicos. Si la ficha pide una clave (por ejemplo <code>X-API-Key</code>), pégala aquí y quedará guardada con el agente. El turno lo cierra el coordinador con el agente del proyecto.</p>
       </section>
     </aside>
 
@@ -86,11 +86,11 @@
         <h2>Flujo A2A</h2>
         <span id="flujo-resumen" class="chip">sin turnos</span>
       </header>
-      <p id="flujo-vacio" class="sutil">Envía un mensaje para ver el recorrido: descubrimiento de tarjetas, consultas en paralelo y síntesis.</p>
+      <p id="flujo-vacio" class="sutil">Envía un mensaje para ver el recorrido: estado del coordinador, tarjetas de los colegas, consultas en paralelo y el cierre del turno.</p>
       <ol id="lista-flujo" class="linea-tiempo"></ol>
     </aside>
   </div>
 
-  <script src="/static/app.js?v=8"></script>
+  <script src="/static/app.js?v=10"></script>
 </body>
 </html>

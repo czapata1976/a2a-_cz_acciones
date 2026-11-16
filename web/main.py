@@ -4,9 +4,10 @@ Arranque recomendado:
 
     .venv\\Scripts\\python.exe scripts\\servidor_web.py
 
-La página es un cliente A2A más: habla con el agente local (síntesis) y con hasta cuatro agentes
-remotos que el usuario agrega por su URL pública. Las credenciales viven en `.env` (`WEB_USUARIO`,
-`WEB_CLAVE_HASH`, `WEB_SECRETO`).
+La página es un cliente del coordinador: le manda cada turno (y las respuestas de hasta cuatro
+agentes remotos que el usuario agrega por su URL pública) y el coordinador decide con qué agente del
+proyecto cerrarlo. El agente nunca recibe una llamada directa desde aquí. Las credenciales viven en
+`.env` (`WEB_USUARIO`, `WEB_CLAVE_HASH`, `WEB_SECRETO`, `COORDINADOR_CLAVE`).
 """
 from __future__ import annotations
 
@@ -19,7 +20,7 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from web import a2a, orquestador
+from web import a2a, coordinador, orquestador
 from web.almacen import Almacen
 from web.auth import LimiteIntentos, crear_cookie, leer_cookie, verificar_clave
 from web.config import MAX_AGENTES, Settings, cargar_settings
@@ -138,8 +139,8 @@ def crear_app(settings: Settings | None = None, almacen: Almacen | None = None) 
     async def sesion(usuario: str = Depends(usuario_actual)) -> dict:
         return {
             "usuario": usuario,
-            "agente": settings.a2a_graph,
-            "agente_url": settings.a2a_url,
+            "agente": f"coordinador ({settings.agente_sintesis})",
+            "agente_url": settings.coordinador_url,
             "maximo_agentes": MAX_AGENTES,
         }
 
@@ -177,17 +178,23 @@ def crear_app(settings: Settings | None = None, almacen: Almacen | None = None) 
         estado_local = "no disponible"
         detalle_local = ""
         try:
-            local = await a2a.descubrir(settings.a2a_url, timeout=min(10.0, settings.a2a_timeout))
-            estado_local, detalle_local = "disponible", local.nombre
+            salud = await coordinador.estado(
+                settings.coordinador_url, timeout=min(10.0, settings.a2a_timeout)
+            )
+            agentes_coord = [a for a in (salud.get("agentes") or []) if isinstance(a, dict)]
+            estado_local = "disponible"
+            detalle_local = f"{len(agentes_coord)} agente(s): " + ", ".join(
+                str(a.get("nombre") or a.get("url") or "") for a in agentes_coord
+            )
         except Exception as error:  # noqa: BLE001
             detalle_local = str(error)
         return {
             "local": {
-                "nombre": settings.a2a_graph,
-                "url": settings.a2a_url,
+                "nombre": "coordinador",
+                "url": settings.coordinador_url,
                 "estado": estado_local,
                 "detalle": detalle_local,
-                "rol": "sintetiza",
+                "rol": "coordinador · orquesta",
             },
             "remotos": list(estados),
             "maximo": MAX_AGENTES,
@@ -297,20 +304,21 @@ def crear_app(settings: Settings | None = None, almacen: Almacen | None = None) 
     # --- salud y página ---------------------------------------------------
     @app.get("/ok")
     async def ok() -> dict:
-        return {"ok": True, "agente": settings.a2a_graph, "equipo": len(almacen.agentes())}
+        return {"ok": True, "coordinador": settings.coordinador_url, "equipo": len(almacen.agentes())}
 
     @app.get("/salud")
     async def salud() -> dict:
         estado = "desconocido"
         try:
-            await a2a.descubrir(settings.a2a_url, timeout=min(8.0, settings.a2a_timeout))
+            await coordinador.estado(settings.coordinador_url, timeout=min(8.0, settings.a2a_timeout))
             estado = "disponible"
         except Exception as error:  # noqa: BLE001
-            logger.warning("Salud: agente local no disponible (%s)", type(error).__name__)
+            logger.warning("Salud: coordinador no disponible (%s)", type(error).__name__)
             estado = "no disponible"
         return {
             "web": {"host": settings.host, "port": settings.port, "usuario": settings.usuario},
-            "agente": {"nombre": settings.a2a_graph, "url": settings.a2a_url, "estado": estado},
+            "coordinador": {"url": settings.coordinador_url, "estado": estado},
+            "agente": {"nombre": settings.agente_sintesis, "via": "coordinador"},
             "equipo": {"remotos": len(almacen.agentes()), "maximo": MAX_AGENTES},
         }
 

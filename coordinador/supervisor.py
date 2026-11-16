@@ -43,6 +43,10 @@ SIN_AGENTE = (
     "No tengo un agente para eso. El equipo cubre lo siguiente:\n{agentes}"
 )
 
+SIN_AGENTE_FIJADO = (
+    "El coordinador no tiene configurado el agente {agente}. Los agentes del equipo son:\n{agentes}"
+)
+
 CAIDO = (
     "La parte de {agente} no está disponible ahora ({motivo}). Los demás agentes siguen disponibles:\n"
     "{otros}"
@@ -65,6 +69,7 @@ class Estado(TypedDict, total=False):
     consulta: str
     historial: Annotated[list[str], operator.add]
     saltos: list[dict]
+    preferido: str
     agente: str
     endpoint: str
     respuesta: str
@@ -137,6 +142,14 @@ class Supervisor:
         self.grafo = self._compilar()
 
     # --- nodos ------------------------------------------------------------
+    def _ficha(self, nombre: str) -> Ficha | None:
+        """Busca por nombre de la tarjeta o por la URL configurada (sin distinguir mayúsculas)."""
+        objetivo = nombre.strip().rstrip("/").lower()
+        for ficha in self.fichas:
+            if objetivo in {(ficha.nombre or "").strip().lower(), ficha.url.strip().rstrip("/").lower()}:
+                return ficha
+        return None
+
     async def _elegir(self, estado: Estado) -> dict:
         inicio = time.perf_counter()
         consulta = estado.get("consulta", "")
@@ -156,6 +169,30 @@ class Supervisor:
                 "respuesta": INYECCION.format(agentes=lista_agentes(self.fichas)),
                 "respuesta_agente": "",
                 "saltos": [_paso("elegir", "intento de cambiar instrucciones: no obedezco", inicio)],
+            }
+
+        preferido = (estado.get("preferido") or "").strip()
+        if preferido:
+            # Quien pregunta puede fijar el agente (el chat web sintetiza con uno concreto): el
+            # coordinador sigue siendo el único que le habla y el único que cita quién respondió.
+            ficha = self._ficha(preferido)
+            if ficha is None:
+                return {
+                    "motivo": "no_configurado",
+                    "respuesta": SIN_AGENTE_FIJADO.format(
+                        agente=preferido, agentes=lista_agentes(self.fichas)
+                    ),
+                    "respuesta_agente": "",
+                    "saltos": [_paso("elegir", f"{preferido} no está en URLS_AGENTES", inicio)],
+                }
+            return {
+                "motivo": "elegido",
+                "agente": ficha.nombre or ficha.url,
+                "endpoint": ficha.endpoint,
+                "respuesta_agente": "",
+                "saltos": [
+                    _paso("elegir", f"{ficha.nombre or ficha.url} fijado por quien preguntó", inicio)
+                ],
             }
 
         ficha, ranking = elegir(self.fichas, texto_eleccion)
@@ -210,7 +247,7 @@ class Supervisor:
         inicio = time.perf_counter()
         motivo = estado.get("motivo", "ok")
         saltos = list(estado.get("saltos", []))
-        if motivo in {"saludo", "inyeccion", "ninguno", "caido"}:
+        if motivo in {"saludo", "inyeccion", "ninguno", "caido", "no_configurado"}:
             return {"saltos": [*saltos, _paso("componer", "respuesta del coordinador, sin agente", inicio)]}
         texto = estado.get("respuesta_agente", "")
         nombre = estado.get("agente", "")
@@ -236,9 +273,9 @@ class Supervisor:
         return grafo.compile(checkpointer=self.checkpointer)
 
     # --- uso --------------------------------------------------------------
-    async def responder(self, cliente: str, texto: str) -> Resultado:
+    async def responder(self, cliente: str, texto: str, agente: str = "") -> Resultado:
         estado = await self.grafo.ainvoke(
-            {"consulta": texto, "historial": [texto], "saltos": []},
+            {"consulta": texto, "historial": [texto], "saltos": [], "preferido": agente or ""},
             {"configurable": {"thread_id": cliente}},
         )
         motivo = estado.get("motivo", "ok")

@@ -2,9 +2,10 @@
 
 Un mismo repositorio despliega tres apps; cada una elige su rol con la config var `ROL`:
 
-    ROL=agente       → servidor A2A del agente (src/agente_acciones/servidor.py)
-    ROL=coordinador  → coordinador + canal de Telegram (coordinador/main.py)
-    ROL=web          → chat web con login (web/main.py)
+    ROL=agente       → servidor A2A del agente (src/agente_acciones/servidor.py), que solo responde
+                       al coordinador (es el único que tiene su clave)
+    ROL=coordinador  → coordinador + canales de Telegram y WhatsApp (coordinador/main.py)
+    ROL=web          → chat web con login (web/main.py), cliente del coordinador
 
 Heroku entrega el puerto en `PORT`; el proceso escucha en 0.0.0.0.
 """
@@ -59,6 +60,16 @@ def main() -> int:
     if rol == "web" and len((os.environ.get("WEB_SECRETO") or "").strip()) < 32:
         logger.error("Falta WEB_SECRETO (32 caracteres o más): firma la cookie de sesión.")
         return 1
+    if rol == "web" and len((os.environ.get("COORDINADOR_CLAVE") or "").strip()) < 8:
+        logger.error(
+            "Falta COORDINADOR_CLAVE: el chat web no habla con el agente, solo con el coordinador."
+        )
+        return 1
+    if rol == "web" and (os.environ.get("A2A_CZZ_CLAVE") or "").strip():
+        logger.warning(
+            "A2A_CZZ_CLAVE ya no se usa en el chat web (el agente solo responde al coordinador): "
+            "quítala de esta app."
+        )
 
     import uvicorn
 

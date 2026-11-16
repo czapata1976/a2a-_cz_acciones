@@ -400,7 +400,7 @@ function renderEquipo() {
   const lista = $('#lista-agentes');
   const { local, remotos, maximo } = estado.equipo;
   lista.innerHTML = '';
-  if (local) lista.appendChild(itemAgente({ ...local, rol: 'local · sintetiza' }, false));
+  if (local) lista.appendChild(itemAgente(local, false));
   for (const remoto of remotos) lista.appendChild(itemAgente(remoto, true));
 
   $('#contador-equipo').textContent = `${remotos.length}/${maximo}`;
@@ -466,7 +466,7 @@ async function quitarAgente(url) {
 const ETIQUETAS = {
   descubrimiento: 'descubrimiento',
   consulta: 'consulta',
-  sintesis: 'síntesis',
+  sintesis: 'cierre',
 };
 
 function renderFlujo(flujo) {

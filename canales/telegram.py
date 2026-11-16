@@ -1,4 +1,4 @@
-"""Canal Telegram: recibe updates y responde con el agente A2A.
+"""Canal Telegram: recibe updates y responde con lo que diga el coordinador.
 
 Dos formas de recibir mensajes:
 
@@ -18,8 +18,8 @@ import secrets
 import httpx
 from fastapi import APIRouter, BackgroundTasks, Header, HTTPException, Request
 
-from canales.agente import ErrorAgente
 from canales.config import Settings
+from canales.coordinador import ErrorCoordinador
 
 logger = logging.getLogger(__name__)
 
@@ -28,12 +28,13 @@ router = APIRouter(prefix="/telegram", tags=["telegram"])
 LIMITE_TELEGRAM = 4000
 
 MENSAJE_AYUDA = (
-    "Hola. Soy el canal Telegram de agente_cz_A2A, el asesor de acciones de Carlos Zapata.\n\n"
+    "Hola. Soy el canal Telegram del coordinador A2A: recibo tu consulta y la paso al agente del "
+    "equipo que sabe responderla, diciéndote cuál fue.\n\n"
     "Escríbeme una consulta con el ticker y el mercado, por ejemplo:\n"
     "  ¿Cuánto vale AAPL en el mercado US?\n"
     "  Compara NVDA y MSFT en US para un horizonte de 3 años.\n\n"
-    "Puedo analizar mercado y fundamentales, y decirte qué revisar antes de invertir. "
-    "No ejecuto pagos ni inversiones, y lo tributario lo deriva a un especialista."
+    "El agente analiza mercado y fundamentales, y dice qué revisar antes de invertir. "
+    "No ejecuta pagos ni inversiones, y lo tributario lo deja fuera de su alcance."
 )
 
 
@@ -82,15 +83,15 @@ async def enviar_telegram(settings: Settings, chat_id: int, texto: str) -> None:
 
 
 async def procesar_mensaje(app, chat_id: int, texto: str) -> None:
-    """Consulta al agente y responde; se ejecuta en segundo plano tras el webhook."""
+    """Consulta al coordinador y responde; se ejecuta en segundo plano tras el webhook."""
     settings: Settings = app.state.settings
 
     if texto.lower() in {"/start", "/help", "/ayuda"}:
         respuesta = MENSAJE_AYUDA
     else:
         try:
-            respuesta = await app.state.agente.consultar(texto, f"telegram-{chat_id}")
-        except ErrorAgente as error:
+            respuesta = await app.state.coordinador.consultar(texto, f"telegram:{chat_id}")
+        except ErrorCoordinador as error:
             logger.warning("Telegram: %s", error)
             respuesta = f"No pude responder la consulta: {error}"
         except Exception:

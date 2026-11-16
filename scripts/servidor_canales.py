@@ -1,11 +1,12 @@
-"""Supervisor de los canales: FastAPI y, si est? habilitado, el puente de WhatsApp.
+"""Supervisor de los canales: FastAPI y, si está habilitado, el puente de WhatsApp.
 
 Un solo comando arranca los dos procesos:
 
     .venv\\Scripts\\python.exe scripts\\servidor_canales.py
 
 Si el puente no puede arrancar (Node o dependencias faltantes), la API de canales sigue disponible
-y `/salud` informa que WhatsApp no est? operativo. El agente A2A debe estar corriendo aparte.
+y `/salud` informa que WhatsApp no está operativo. El **coordinador** debe estar corriendo aparte:
+los canales le pasan la consulta y él decide qué agente responde.
 """
 from __future__ import annotations
 
@@ -52,7 +53,7 @@ def main() -> int:
         logger.error("Configuraci?n inv?lida: %s", error)
         return 1
 
-    logger.info("Canales en http://%s:%s ? agente A2A %s (%s)", settings.host, settings.port, settings.a2a_graph, settings.a2a_url)
+    logger.info("Canales en http://%s:%s ? coordinador %s", settings.host, settings.port, settings.coordinador_url)
     logger.info("Telegram: %s", "listo (webhook)" if settings.telegram_token else "sin TELEGRAM_TOKEN")
     logger.info("WhatsApp: %s", "habilitado" if settings.whatsapp_habilitado else "deshabilitado")
 
@@ -62,7 +63,7 @@ def main() -> int:
             secreto=settings.whatsapp_secret,
             url_interna=settings.whatsapp_url_interna,
             backend_url=f"http://127.0.0.1:{settings.port}/whatsapp/mensaje",
-            timeout_s=settings.a2a_timeout,
+            timeout_s=settings.timeout,
             database_url=os.environ.get("DATABASE_URL", ""),
         )
 

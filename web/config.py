@@ -1,7 +1,8 @@
 """Configuración del chat web de `agente_cz_A2A`.
 
-Igual que los canales, la web es un cliente A2A: no importa el grafo, así que el agente puede
-reiniciarse sin que se pierda el hilo de las conversaciones. Las credenciales viven en `.env`.
+Igual que los canales, la web es un cliente del coordinador: no importa el grafo ni guarda la clave
+del agente, así que el agente solo responde a quien el coordinador le manda. Las credenciales viven
+en `.env`.
 """
 from __future__ import annotations
 
@@ -50,7 +51,7 @@ def _decimal(nombre: str, defecto: float, minimo: float, maximo: float) -> float
 
 @dataclass(frozen=True)
 class Settings:
-    """Parámetros del servicio web, de la sesión y del agente que sintetiza."""
+    """Parámetros del servicio web, de la sesión y del coordinador que atiende el turno."""
 
     host: str
     port: int
@@ -58,12 +59,13 @@ class Settings:
     clave_hash: str
     secreto: str
     horas_sesion: float
-    a2a_url: str
-    a2a_graph: str
+    coordinador_url: str
+    coordinador_clave: str
+    agente_sintesis: str
+    """Agente del equipo que el coordinador consulta para sintetizar el turno."""
     a2a_timeout: float
     ruta_datos: str
     """Archivo SQLite o URL de Postgres (`postgresql://…`)."""
-    a2a_clave: str = ""
     max_agentes: int = MAX_AGENTES
 
 
@@ -87,6 +89,13 @@ def cargar_settings() -> Settings:
         raise ConfiguracionInvalida(
             "WEB_CLAVE_HASH debe ser un hash pbkdf2_sha256 generado por scripts\\clave_web.py."
         )
+    coordinador_url = _texto("COORDINADOR_URL", "http://127.0.0.1:8120").rstrip("/")
+    coordinador_clave = _texto("COORDINADOR_CLAVE")
+    if len(coordinador_clave) < 8:
+        raise ConfiguracionInvalida(
+            "Falta COORDINADOR_CLAVE: el chat no habla con el agente, solo con el coordinador, y "
+            "sin su clave /chat rechaza todo. Usa la misma del coordinador."
+        )
 
     return Settings(
         host=_texto("WEB_HOST", "127.0.0.1"),
@@ -95,9 +104,9 @@ def cargar_settings() -> Settings:
         clave_hash=clave_hash,
         secreto=secreto,
         horas_sesion=_decimal("WEB_HORAS_SESION", 8.0, 0.1, 168.0),
-        a2a_url=_texto("A2A_CZZ_URL", "http://127.0.0.1:2029").rstrip("/"),
-        a2a_graph=_texto("A2A_CZZ_GRAPH", "agente_cz_A2A"),
+        coordinador_url=coordinador_url,
+        coordinador_clave=coordinador_clave,
+        agente_sintesis=_texto("A2A_CZZ_GRAPH", "agente_cz_A2A"),
         a2a_timeout=_decimal("A2A_TIMEOUT", 180.0, 5.0, 600.0),
         ruta_datos=_texto("WEB_DATOS") or _texto("DATABASE_URL") or "web/.runtime/chat.db",
-        a2a_clave=_texto("A2A_CZZ_CLAVE") or _texto("AGENTE_CLAVE"),
     )

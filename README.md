@@ -127,10 +127,9 @@ python -c "import secrets; print(secrets.token_urlsafe(24))"     # AGENTE_CLAVE 
 `.env` local de ejemplo:
 
 ```dotenv
-AGENTE_CLAVE=<clave-del-agente>
-A2A_CZZ_CLAVE=<la misma, para el chat web>
+AGENTE_CLAVE=<clave-del-agente>            # solo la usa el coordinador
 URL_PUBLICA=
-COORDINADOR_CLAVE=<clave-del-coordinador>
+COORDINADOR_CLAVE=<clave-del-coordinador>  # la usan los canales y el chat web
 URLS_AGENTES=[{"url": "http://127.0.0.1:2029", "clave": "<clave-del-agente>"}]
 ```
 
@@ -202,11 +201,13 @@ heroku config:set --app coordinador-cz-acciones ROL=coordinador COORDINADOR_CLAV
   DATABASE_URL=<el mismo Postgres del taller>
 git push coordinador HEAD:main
 
-# chat web (login propio; habla con el agente desplegado por A2A)
+# chat web (login propio; entra por el coordinador, no habla con el agente)
 heroku config:set --app chat-web-cz-acciones ROL=web WEB_USUARIO=carlos ^
   WEB_CLAVE_HASH=<salida de scripts\clave_web.py> WEB_SECRETO=<salida de scripts\clave_web.py> ^
-  A2A_CZZ_URL=https://agente-cz-acciones-50f663cbb84c.herokuapp.com A2A_CZZ_CLAVE=... ^
-  DATABASE_URL=<postgres del taller> WEB_CONCURRENCY=1
+  COORDINADOR_URL=https://coordinador-cz-acciones-aabcdf3f447b.herokuapp.com COORDINADOR_CLAVE=... ^
+  A2A_CZZ_GRAPH=agente_cz_A2A DATABASE_URL=<postgres del taller> WEB_CONCURRENCY=1
+# si la app venia de la version anterior, quita la clave del agente de este dyno:
+heroku config:unset --app chat-web-cz-acciones A2A_CZZ_CLAVE A2A_CZZ_URL
 git push web HEAD:main
 
 # el Procfile declara `web: python scripts/heroku_web.py`
@@ -319,8 +320,9 @@ traza A2A de cada turno.
 | En local   | [http://127.0.0.1:8110](http://127.0.0.1:8110) (`scripts\servidor_web.py`)                                                               |
 
 Es una demo aparte: el camino de la entrega es el coordinador y el canal. El login se configura con
-`WEB_USUARIO`, `WEB_CLAVE_HASH` y `WEB_SECRETO` (`scripts\clave_web.py`); en la nube el agente que
-sintetiza es el desplegado, apuntado con `A2A_CZZ_URL` y `A2A_CZZ_CLAVE`.
+`WEB_USUARIO`, `WEB_CLAVE_HASH` y `WEB_SECRETO` (`scripts\clave_web.py`); en la nube el chat entra por
+el coordinador desplegado (`COORDINADOR_URL` y `COORDINADOR_CLAVE`) y le pide que cierre el turno con
+el agente `A2A_CZZ_GRAPH`. No guarda la clave del agente.
 
 **Persistencia.** Las conversaciones, el equipo y las trazas viven en Postgres (`DATABASE_URL`) y
 sobreviven a los reinicios del dyno; sin esa variable caen a SQLite en `WEB_DATOS`
@@ -334,12 +336,12 @@ las anteriores con sus mensajes (`Almacen.podar_charlas`).
 coordinador, Telegram, WhatsApp, otros agentes), protocolo A2A, equipo local + remotos y persistencia.
 
 **El equipo es parte del trabajo, no una lista aparte.** En cada turno el chat lee la tarjeta de cada
-agente agregado y le pasa al agente local un bloque `<equipo_a2a>` con nombre, descripción y skills
-(`web/orquestador.py:ficha_de_equipo`). Así el agente local reconoce a los colegas —incluidos los que
-se agreguen después— y puede responder «quiénes forman el equipo» o «qué hace *X*» aunque ese agente no
-conteste en ese turno. Las respuestas de los demás viajan aparte, en `<respuestas_agentes>`, siempre
-como dato y nunca como instrucción. Pegar la URL de la ficha (`…/.well-known/agent-card.json`) también
-sirve: se usa la raíz y el endpoint que anuncia la tarjeta.
+agente agregado y manda al coordinador —que cierra el turno con el agente `A2A_CZZ_GRAPH`— un bloque
+`<equipo_a2a>` con nombre, descripción y skills (`web/orquestador.py:ficha_de_equipo`). Así el agente
+reconoce a los colegas —incluidos los que se agreguen después— y puede responder «quiénes forman el
+equipo» o «qué hace *X*» aunque ese agente no conteste en ese turno. Las respuestas de los demás viajan
+aparte, en `<respuestas_agentes>`, siempre como dato y nunca como instrucción. Pegar la URL de la ficha
+(`…/.well-known/agent-card.json`) también sirve: se usa la raíz y el endpoint que anuncia la tarjeta.
 
 ```dotenv
 A2A_SERVIDORES=http://127.0.0.1:2025,http://127.0.0.1:2026,http://127.0.0.1:2027,http://127.0.0.1:2028,http://127.0.0.1:2029
@@ -444,13 +446,15 @@ El script publica el puerto 2029, verifica la tarjeta por la URL pública y guar
 
 ## Canales: Telegram y WhatsApp
 
-Los canales son un **cliente A2A más**: no importan el grafo, hablan con el agente por HTTP. Así el
-agente puede reiniciarse sin perder el hilo de los canales y el mismo canal sirve para cualquier
-agente A2A del grupo.
+Los canales son **clientes del coordinador**: no importan el grafo ni conocen la URL del agente, solo
+le pasan la consulta a `POST /chat`. El coordinador elige el agente del equipo, lo consulta y dice cuál
+respondió. Así el agente **solo responde al coordinador** —es el único que tiene `AGENTE_CLAVE`— y un
+canal nuevo (Telegram, WhatsApp, correo) se conecta siempre por el mismo camino.
 
 | Proceso         | Puerto | Para qué                                                    |
 | --------------- | ------ | ------------------------------------------------------------ |
-| Agente          | 2029   | `langgraph dev` (A2A)                                      |
+| Agente          | 2029   | `langgraph dev` (A2A), solo atiende al coordinador         |
+| Coordinador     | 8120   | Elige agente, cita quién respondió y recuerda por cliente   |
 | Canales         | 8100   | API de Telegram y WhatsApp (`scripts/servidor_canales.py`) |
 | Puente WhatsApp | 18082  | Node + Baileys, solo loopback                                |
 
@@ -462,20 +466,24 @@ npm install                       # dependencias del puente WhatsApp (Node 22+)
 ```
 
 El `.env` trae los bloques de Telegram y WhatsApp. Para WhatsApp, `WHATSAPP_SECRET` debe tener 16 o
-más caracteres y `WHATSAPP_HABILITADO=true`.
+más caracteres y `WHATSAPP_HABILITADO=true`. Los canales necesitan `COORDINADOR_URL` y
+`COORDINADOR_CLAVE`: sin esa clave el coordinador rechaza todo.
 
-### Arranque (dos terminales)
+### Arranque (tres terminales)
 
 ```powershell
 # terminal 1 · agente A2A
 .venv\Scripts\langgraph.exe dev --port 2029
 
-# terminal 2 · canales (levanta también el puente de WhatsApp)
+# terminal 2 · coordinador (conoce URLS_AGENTES, con la clave del agente)
+.venv\Scripts\python.exe scripts\servidor_coordinador.py
+
+# terminal 3 · canales (levanta también el puente de WhatsApp)
 .venv\Scripts\python.exe scripts\servidor_canales.py
 ```
 
 `Invoke-RestMethod http://127.0.0.1:8100/salud` informa si Telegram y WhatsApp están configurados y
-si el agente responde.
+si el coordinador responde (y con qué agentes del equipo cuenta).
 
 ### Telegram
 
@@ -555,14 +563,16 @@ npm run whatsapp:test                                          # puente Node
 
 ## Chat web: login, equipo de agentes y flujo A2A
 
-`web/` es una página de chat que habla A2A con el agente local y con hasta **cuatro agentes remotos**
-que agregues por su URL pública. Cada turno se ve en el panel **Flujo A2A**: descubrimiento de cada
-tarjeta, consulta en paralelo a los agentes del equipo y síntesis del agente local.
+`web/` es una página de chat que **entra por el coordinador** y suma hasta **cuatro agentes remotos**
+que agregues por su URL pública. Cada turno se ve en el panel **Flujo A2A**: estado del coordinador,
+descubrimiento de cada tarjeta remota, consulta en paralelo y cierre del turno por el coordinador, que
+es el único que habla con el agente del proyecto.
 
-| Proceso  | Puerto | Para qué                                                 |
-| -------- | ------ | --------------------------------------------------------- |
-| Agente   | 2029   | `langgraph dev` (A2A), también sintetiza               |
-| Chat web | 8110   | FastAPI + página estática (`scripts/servidor_web.py`) |
+| Proceso    | Puerto | Para qué                                                 |
+| ---------- | ------ | --------------------------------------------------------- |
+| Agente     | 2029   | `langgraph dev` (A2A), solo atiende al coordinador       |
+| Coordinador| 8120   | Elige agente, cita quién respondió y recuerda por cliente |
+| Chat web   | 8110   | FastAPI + página estática (`scripts/servidor_web.py`) |
 
 ### Preparación
 
@@ -570,6 +580,10 @@ tarjeta, consulta en paralelo a los agentes del equipo y síntesis del agente lo
 .venv\Scripts\python.exe scripts\clave_web.py --usuario carlos
 # pega en .env las tres líneas que imprime: WEB_USUARIO, WEB_CLAVE_HASH y WEB_SECRETO
 ```
+
+El chat necesita además `COORDINADOR_URL` y `COORDINADOR_CLAVE` (la misma del coordinador) y
+`A2A_CZZ_GRAPH` como nombre del agente que sintetiza. **No** lleva `AGENTE_CLAVE` ni
+`A2A_CZZ_CLAVE`: el agente solo responde al coordinador.
 
 `WEB_CLAVE_HASH` es un PBKDF2-SHA256 con sal; la clave en claro no se guarda. `WEB_SECRETO` firma la
 cookie de sesión (`HttpOnly`, `SameSite=Lax`, `Secure` cuando se entra por HTTPS, 8 h por defecto).
@@ -587,23 +601,28 @@ las escrituras siguen exigiendo `X-Solicitado-Por`, así que no habilita CSRF.
 # terminal 1 · agente A2A
 .venv\Scripts\langgraph.exe dev --port 2029
 
-# terminal 2 · chat web
+# terminal 2 · coordinador
+.venv\Scripts\python.exe scripts\servidor_coordinador.py
+
+# terminal 3 · chat web
 .venv\Scripts\python.exe scripts\servidor_web.py
 ```
 
 Abre `http://127.0.0.1:8110`, entra con tu usuario y clave. `Get http://127.0.0.1:8110/salud` informa
-el estado del agente local y cuántos agentes remotos hay en el equipo.
+el estado del coordinador y cuántos agentes remotos hay en el equipo.
 
 ### Qué hace cada turno
 
-1. **Descubrimiento** — lee `/.well-known/agent-card.json` de cada agente; si el servidor es
-   `langgraph dev`, primero resuelve el `assistant_id` en `/assistants/search`.
-2. **Consultas en paralelo** — `message/send` a cada agente remoto, cada uno con su `contextId`
-   derivado de la conversación, así recuerdan los turnos anteriores.
-3. **Síntesis** — el agente local recibe la pregunta y los aportes de los colegas entre etiquetas
-   (`<respuestas_agentes>`) y entrega una sola respuesta. Las respuestas ajenas son datos, no
-   instrucciones.
-4. **Traza** — cada paso con su URL, latencia, estado y el texto que devolvió el agente.
+1. **Estado del coordinador** — `GET /salud`: con qué agentes del equipo cuenta.
+2. **Descubrimiento** — lee `/.well-known/agent-card.json` de cada agente **remoto** del panel; si el
+   servidor es `langgraph dev`, primero resuelve el `assistant_id` en `/assistants/search`.
+3. **Consultas en paralelo** — `message/send` a cada remoto, cada uno con su `contextId` derivado de
+   la conversación, así recuerdan los turnos anteriores.
+4. **Cierre por el coordinador** — `POST /chat` con `X-Coordinador-Clave`, el agente que debe
+   sintetizar (`A2A_CZZ_GRAPH`) y la pregunta con los aportes entre etiquetas
+   (`<respuestas_agentes>`). El coordinador lo consulta, cita quién respondió y devuelve su texto
+   intacto. Las respuestas ajenas son datos, no instrucciones.
+5. **Traza** — cada paso con su URL, latencia, estado y el texto que devolvió el agente.
 
 Sobre el redactor hay cinco **preguntas de ejemplo** que se envían con un clic. Tres muestran el agente
 de acciones (análisis de NVDA con perfil y horizonte, precio de SQM-B en CLP y una consulta tributaria
@@ -656,8 +675,8 @@ mi-agente-czz/
 ├── requirements.txt  requirements-notebook.txt  .env.example  README.md
 ├── src/agente_acciones/   graph.py  herramientas.py  prompts.py  tarjeta.py  servidor.py
 ├── coordinador/         main.py  config.py  supervisor.py  fichas.py  a2a.py  canal.py
-├── canales/             main.py  telegram.py  whatsapp.py  agente.py  config.py
-├── web/                 main.py  config.py  auth.py  almacen.py  a2a.py  orquestador.py · static/
+├── canales/             main.py  telegram.py  whatsapp.py  coordinador.py  a2a.py  config.py
+├── web/                 main.py  config.py  auth.py  almacen.py  a2a.py  coordinador.py  orquestador.py · static/
 ├── scripts/             servidor_agente.py · servidor_coordinador.py · probar_coordinador.py · verificar_entrega.py · heroku_web.py · servidor_canales.py · servidor_web.py · clave_web.py
 ├── Procfile · .python-version · .slugignore   ← despliegue en Heroku
 ├── whatsapp/            src/*.mjs · test/internal.test.mjs   ← puente Node/Baileys

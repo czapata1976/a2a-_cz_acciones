@@ -48,7 +48,12 @@ def main() -> int:
         return 1
 
     logger.info("Chat web en http://%s:%s · usuario %s", settings.host, settings.port, settings.usuario)
-    logger.info("Agente local %s en %s · hasta %s agentes remotos", settings.a2a_graph, settings.a2a_url, settings.max_agentes)
+    logger.info(
+        "Coordinador en %s (sintetiza %s) · hasta %s agentes remotos",
+        settings.coordinador_url,
+        settings.agente_sintesis,
+        settings.max_agentes,
+    )
 
     import uvicorn
 

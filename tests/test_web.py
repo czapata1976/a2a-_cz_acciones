@@ -1,26 +1,28 @@
 """Pruebas del chat web (sin salir a la red).
 
-El agente se sustituye por dobles de `web.a2a`, así se verifica la autenticación, el tope de cuatro
-agentes, el abanico en paralelo y la síntesis. La prueba real del agente está en `test_a2a_czz.py`.
+El coordinador y los agentes remotos se sustituyen por dobles, así se verifica la autenticación, el
+tope de cuatro agentes, el abanico en paralelo y el cierre del turno por el coordinador. El agente
+real se prueba en `test_a2a_czz.py` y el coordinador en `test_coordinador.py`.
 """
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 from dotenv import load_dotenv
 from fastapi.testclient import TestClient
 
-from web import a2a
+from web import a2a, coordinador
 from web.almacen import Almacen, es_postgres
 from web.auth import crear_cookie, hash_clave
-from web.config import Settings
+from web.config import ConfiguracionInvalida, Settings, cargar_settings
 from web.main import NOMBRE_COOKIE, crear_app
 
 CLAVE = "clave-de-prueba-1234"
 SECRETO = "s" * 48
 CABECERAS = {"X-Solicitado-Por": "chat-web"}
-LOCAL = "http://127.0.0.1:2029"
+COORDINADOR = "http://127.0.0.1:8120"
 
 
 @pytest.fixture
@@ -32,8 +34,9 @@ def settings(tmp_path) -> Settings:
         clave_hash=hash_clave(CLAVE, iteraciones=1000),
         secreto=SECRETO,
         horas_sesion=1.0,
-        a2a_url=LOCAL,
-        a2a_graph="agente_cz_A2A",
+        coordinador_url=COORDINADOR,
+        coordinador_clave="clave-del-coordinador-para-prueba",
+        agente_sintesis="agente_cz_A2A",
         a2a_timeout=30.0,
         ruta_datos=str(tmp_path / "chat.db"),
     )
@@ -75,20 +78,38 @@ def agente(base: str) -> a2a.Agente:
 
 @pytest.fixture
 def sin_red(monkeypatch):
-    """Descubrimiento y envío falsos: devuelven la URL del agente como texto."""
-    llamadas: list[tuple[str, str, str]] = []
+    """Coordinador y agentes remotos falsos: el chat no sale a la red."""
+    llamadas: list[dict] = []
 
     async def descubrir(base: str, timeout: float = 15.0, clave: str = '') -> a2a.Agente:
         return agente(base)
 
     async def enviar(instancia: a2a.Agente, texto: str, context_id: str, timeout: float = 180.0) -> str:
-        llamadas.append((instancia.base, texto, context_id))
-        if instancia.base == LOCAL:
-            return "síntesis del equipo"
+        llamadas.append({"tipo": "remoto", "url": instancia.base, "texto": texto})
         return f"aporte de {instancia.base}"
+
+    async def estado(base: str, timeout: float = 10.0) -> dict:
+        return {"ok": True, "agentes": [{"nombre": "agente_cz_A2A", "estado": "disponible"}]}
+
+    async def consultar(
+        base: str, clave: str, texto: str, cliente: str, agente: str = "", timeout: float = 180.0
+    ) -> dict:
+        llamadas.append({
+            "tipo": "coordinador", "url": base, "cliente": cliente,
+            "texto": texto, "agente": agente, "clave": clave,
+        })
+        return {
+            "respuesta": "Respondió: agente_cz_A2A\nhttp://127.0.0.1:2029/a2a\n\nsíntesis del equipo",
+            "agente": "agente_cz_A2A",
+            "motivo": "ok",
+            "respuesta_agente": "síntesis del equipo",
+            "saltos": [],
+        }
 
     monkeypatch.setattr(a2a, "descubrir", descubrir)
     monkeypatch.setattr(a2a, "enviar", enviar)
+    monkeypatch.setattr(coordinador, "estado", estado)
+    monkeypatch.setattr(coordinador, "consultar", consultar)
     return llamadas
 
 
@@ -191,7 +212,7 @@ def test_equipo_valida_url(cliente: TestClient, sin_red):
     equipo = cliente.get("/api/agentes").json()
     assert equipo["maximo"] == 4
     assert [item["url"] for item in equipo["remotos"]] == ["https://uno.trycloudflare.com"]
-    assert equipo["local"]["nombre"] == "agente_cz_A2A"
+    assert equipo["local"]["nombre"] == "coordinador"
 
 
 def test_tarjeta_con_http_usa_el_esquema_de_la_url_escrita():
@@ -464,10 +485,16 @@ def test_turno_consulta_remotos_y_sintetiza(cliente: TestClient, sin_red):
     assert all(paso["estado"] == "ok" for paso in datos["flujo"])
 
     # las respuestas de los colegas llegaron como dato, entre etiquetas
-    peticion_local = [llamada for llamada in sin_red if llamada[0] == LOCAL][-1][1]
+    cierre = [llamada for llamada in sin_red if llamada["tipo"] == "coordinador"][-1]
+    peticion_local = cierre["texto"]
     assert "<respuestas_agentes>" in peticion_local
     assert "aporte de https://uno.example.com" in peticion_local
     assert "aporte de https://dos.example.com" in peticion_local
+    # el turno se cierra en el coordinador, con su clave y con el agente que sintetiza fijado
+    assert cierre["url"] == COORDINADOR
+    assert cierre["clave"] == "clave-del-coordinador-para-prueba"
+    assert cierre["agente"] == "agente_cz_A2A"
+    assert cierre["cliente"] == f"web:{charla}"
 
     # y la ficha del equipo va en cada turno, para que reconozca a los agentes agregados
     assert "<equipo_a2a>" in peticion_local
@@ -476,7 +503,7 @@ def test_turno_consulta_remotos_y_sintetiza(cliente: TestClient, sin_red):
 
 
 def test_el_equipo_es_dato_aunque_los_remotos_fallen(cliente: TestClient, monkeypatch):
-    """El agente local conoce a sus colegas por la tarjeta, respondan o no en ese turno."""
+    """El agente conoce a sus colegas por la tarjeta, respondan o no en ese turno."""
     entrar(cliente)
     llamadas: list[str] = []
 
@@ -484,13 +511,27 @@ def test_el_equipo_es_dato_aunque_los_remotos_fallen(cliente: TestClient, monkey
         return agente(base)
 
     async def enviar(instancia: a2a.Agente, texto: str, context_id: str, timeout: float = 180.0) -> str:
-        if instancia.base == LOCAL:
-            llamadas.append(texto)
-            return "no tengo un agente para eso, pero mi equipo sí: agente-uno.example.com"
         raise a2a.ErrorAgenteRemoto("sin respuesta")
+
+    async def estado(base: str, timeout: float = 10.0) -> dict:
+        return {"ok": True, "agentes": [{"nombre": "agente_cz_A2A", "estado": "disponible"}]}
+
+    async def consultar(
+        base: str, clave: str, texto: str, cliente: str, agente: str = "", timeout: float = 180.0
+    ) -> dict:
+        llamadas.append(texto)
+        return {
+            "respuesta": "Respondió: agente_cz_A2A\n\nno tengo un agente para eso, pero mi equipo sí",
+            "agente": "agente_cz_A2A",
+            "motivo": "ok",
+            "respuesta_agente": "no tengo un agente para eso, pero mi equipo sí: agente-uno.example.com",
+            "saltos": [],
+        }
 
     monkeypatch.setattr(a2a, "descubrir", descubrir)
     monkeypatch.setattr(a2a, "enviar", enviar)
+    monkeypatch.setattr(coordinador, "estado", estado)
+    monkeypatch.setattr(coordinador, "consultar", consultar)
     cliente.post("/api/agentes", json={"url": "https://uno.example.com"}, headers=CABECERAS)
     charla = cliente.post("/api/charlas", headers=CABECERAS).json()["id"]
 
@@ -498,7 +539,7 @@ def test_el_equipo_es_dato_aunque_los_remotos_fallen(cliente: TestClient, monkey
         f"/api/charlas/{charla}/mensaje", json={"texto": "¿Qué hace el agente uno?"}, headers=CABECERAS
     )
     assert respuesta.status_code == 200, respuesta.text
-    assert llamadas, "el agente local debe recibir el turno"
+    assert llamadas, "el coordinador debe cerrar el turno"
     assert "<equipo_a2a>" in llamadas[-1]
     assert "agente-uno.example.com" in llamadas[-1]
     assert "<respuestas_agentes>" not in llamadas[-1]
@@ -516,27 +557,29 @@ def test_turno_guarda_conversacion(cliente: TestClient, sin_red):
     assert cliente.get("/api/charlas").json()[0]["mensajes"] == 2
 
 
-def test_turno_sin_agente_local_avisa(cliente: TestClient, monkeypatch):
+def test_turno_sin_coordinador_avisa(cliente: TestClient, monkeypatch):
     entrar(cliente)
     charla = cliente.post("/api/charlas", headers=CABECERAS).json()["id"]
 
     async def descubrir(base: str, timeout: float = 15.0, clave: str = ''):
-        if base == LOCAL:
-            raise a2a.ErrorAgenteRemoto("sin agente local")
         return agente(base)
 
     async def enviar(instancia: a2a.Agente, texto: str, context_id: str, timeout: float = 180.0):
         return "aporte remoto"
 
+    async def sin_coordinador(base: str, timeout: float = 10.0):
+        raise coordinador.ErrorCoordinador("sin coordinador")
+
     monkeypatch.setattr(a2a, "descubrir", descubrir)
     monkeypatch.setattr(a2a, "enviar", enviar)
+    monkeypatch.setattr(coordinador, "estado", sin_coordinador)
     cliente.post("/api/agentes", json={"url": "https://uno.example.com"}, headers=CABECERAS)
 
     datos = cliente.post(
         f"/api/charlas/{charla}/mensaje", json={"texto": "Hola"}, headers=CABECERAS
     ).json()
     assert "aporte remoto" in datos["respuesta"]
-    assert "sin síntesis" in datos["error"]
+    assert "coordinador" in datos["error"]
     assert datos["flujo"][-1]["tipo"] == "sintesis"
     assert datos["flujo"][-1]["estado"] == "error"
 
@@ -548,7 +591,11 @@ def test_turno_sin_respuestas_devuelve_502(cliente: TestClient, monkeypatch):
     async def falla(base: str, timeout: float = 15.0, clave: str = ''):
         raise a2a.ErrorAgenteRemoto("no hay agente")
 
+    async def sin_coordinador(base: str, timeout: float = 10.0):
+        raise coordinador.ErrorCoordinador("no hay coordinador")
+
     monkeypatch.setattr(a2a, "descubrir", falla)
+    monkeypatch.setattr(coordinador, "estado", sin_coordinador)
     respuesta = cliente.post(
         f"/api/charlas/{charla}/mensaje", json={"texto": "Hola"}, headers=CABECERAS
     )
@@ -567,7 +614,7 @@ def test_charla_inexistente(cliente: TestClient, sin_red):
 def test_salud_informa_equipo(cliente: TestClient, sin_red):
     entrar(cliente)
     datos = cliente.get("/salud").json()
-    assert datos["agente"]["estado"] == "disponible"
+    assert datos["coordinador"]["estado"] == "disponible"
     assert datos["equipo"]["maximo"] == 4
     assert cliente.get("/ok").json()["ok"] is True
 
@@ -604,6 +651,34 @@ def test_detecta_ruta_de_postgres():
     assert es_postgres("postgres://usuario:clave@host/base")
     assert not es_postgres("web/.runtime/chat.db")
     assert not es_postgres(":memory:")
+
+
+def test_el_chat_y_los_canales_no_guardan_la_clave_del_agente():
+    """El agente solo responde al coordinador: nadie más conoce su clave ni su URL."""
+    raiz = Path(__file__).resolve().parents[1]
+    for relativo in (
+        "web/config.py",
+        "web/main.py",
+        "web/orquestador.py",
+        "web/coordinador.py",
+        "canales/config.py",
+        "canales/main.py",
+        "canales/coordinador.py",
+    ):
+        texto = (raiz / relativo).read_text(encoding="utf-8")
+        for prohibido in ("AGENTE_CLAVE", "A2A_CZZ_CLAVE", "X-Agente-Clave", "message/send"):
+            assert prohibido not in texto, f"{relativo} no debe conocer {prohibido}"
+
+
+def test_las_settings_del_chat_exigen_la_clave_del_coordinador(monkeypatch, tmp_path):
+    monkeypatch.setattr("web.config.load_dotenv", lambda *args, **kwargs: None)
+    monkeypatch.setenv("WEB_USUARIO", "carlos")
+    monkeypatch.setenv("WEB_CLAVE_HASH", hash_clave("clave", iteraciones=1000))
+    monkeypatch.setenv("WEB_SECRETO", "s" * 48)
+    monkeypatch.setenv("WEB_DATOS", str(tmp_path / "chat.db"))
+    monkeypatch.delenv("COORDINADOR_CLAVE", raising=False)
+    with pytest.raises(ConfiguracionInvalida):
+        cargar_settings()
 
 
 def test_almacen_postgres_guarda_borra_y_usa_tablas_propias():

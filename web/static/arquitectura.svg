@@ -15,13 +15,13 @@
 
   <rect x="40" y="126" width="300" height="66" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
   <text x="58" y="152" font-size="15" font-weight="700" fill="#1e3a8a">Chat web</text>
-  <text x="58" y="172" font-size="13" fill="#334155">HTTPS + login · equipo de hasta 4 agentes</text>
-  <text x="58" y="187" font-size="12" fill="#64748b">traza del flujo A2A en pantalla</text>
+  <text x="58" y="172" font-size="13" fill="#334155">HTTPS + login · hasta 4 agentes remotos</text>
+  <text x="58" y="187" font-size="12" fill="#64748b">cierra el turno en el coordinador</text>
 
   <rect x="40" y="204" width="300" height="66" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
   <text x="58" y="230" font-size="15" font-weight="700" fill="#1e3a8a">Coordinador (supervisor)</text>
   <text x="58" y="250" font-size="13" fill="#334155">POST /chat con X-Coordinador-Clave</text>
-  <text x="58" y="265" font-size="12" fill="#64748b">elige un agente del equipo y lo cita</text>
+  <text x="58" y="265" font-size="12" fill="#64748b">único con la clave del agente; lo cita</text>
 
   <rect x="40" y="282" width="300" height="66" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
   <text x="58" y="308" font-size="15" font-weight="700" fill="#1e3a8a">Telegram</text>
@@ -35,8 +35,8 @@
 
   <rect x="40" y="438" width="300" height="66" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
   <text x="58" y="464" font-size="15" font-weight="700" fill="#1e3a8a">Otros agentes A2A</text>
-  <text x="58" y="484" font-size="13" fill="#334155">message/send con X-Agente-Clave</text>
-  <text x="58" y="499" font-size="12" fill="#64748b">sin clave responde 401</text>
+  <text x="58" y="484" font-size="13" fill="#334155">consultan al coordinador</text>
+  <text x="58" y="499" font-size="12" fill="#64748b">el agente solo responde a él</text>
 
   <!-- Protocolo -->
   <rect x="392" y="126" width="150" height="378" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
@@ -126,10 +126,10 @@
   <!-- Pie -->
   <line x1="40" y1="536" x2="1120" y2="536" stroke="#e2e8f0" stroke-width="1.5"/>
   <text x="40" y="562" font-size="13" font-weight="700" fill="#0f172a">Cómo se lee</text>
-  <text x="40" y="584" font-size="12" fill="#475569">Los canales no importan el código del agente: descubren su tarjeta y le hablan por A2A (HTTP).</text>
-  <text x="40" y="604" font-size="12" fill="#475569">Cada conversación conserva su contextId, así el agente recuerda los turnos anteriores.</text>
-  <text x="40" y="624" font-size="12" fill="#475569">En el chat web cada turno descubre la tarjeta de cada agente del equipo, consulta a todos en paralelo</text>
-  <text x="40" y="642" font-size="12" fill="#475569">y el agente local sintetiza una sola respuesta. Las respuestas ajenas entran como dato, nunca como instrucción.</text>
+  <text x="40" y="584" font-size="12" fill="#475569">Los canales y el chat web entran por el coordinador: el agente solo responde a él, que tiene su clave.</text>
+  <text x="40" y="604" font-size="12" fill="#475569">Cada conversación conserva su cliente, así el coordinador recuerda los turnos anteriores.</text>
+  <text x="40" y="624" font-size="12" fill="#475569">En el chat web cada turno descubre la tarjeta de cada agente del equipo, consulta a los remotos en paralelo</text>
+  <text x="40" y="642" font-size="12" fill="#475569">y el coordinador cierra el turno con el agente del proyecto. Las respuestas ajenas entran como dato, nunca como instrucción.</text>
   <text x="40" y="672" font-size="12" fill="#64748b">Repositorio: github.com/czapata1976/a2a-_cz_acciones · Tres apps Heroku con ROL=agente | coordinador | web</text>
   <text x="40" y="692" font-size="11" fill="#94a3b8">Datos de mercado y fundamentales simulados del taller: la fecha de corte viaja en cada respuesta.</text>
 </svg>

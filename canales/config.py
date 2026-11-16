@@ -1,7 +1,7 @@
 """Configuración del servicio de canales (Telegram y WhatsApp) de `agente_cz_A2A`.
 
-Lee `.env` del proyecto. Los canales son un cliente A2A del agente: no lo importan ni comparten
-proceso, así que el agente puede reiniciarse sin tocar las conversaciones de los canales.
+Lee `.env` del proyecto. Los canales son clientes del coordinador: no hablan con el agente ni lo
+importan, así que solo el coordinador tiene la clave con la que el agente responde.
 """
 from __future__ import annotations
 
@@ -58,11 +58,11 @@ def _booleano(nombre: str, defecto: bool = False) -> bool:
 
 @dataclass(frozen=True)
 class Settings:
-    """Parámetros del servicio y del agente al que consulta."""
+    """Parámetros del servicio y del coordinador al que consulta."""
 
-    a2a_url: str
-    a2a_graph: str
-    a2a_timeout: float
+    coordinador_url: str
+    coordinador_clave: str
+    timeout: float
     host: str
     port: int
     canales_token: str
@@ -83,11 +83,17 @@ def cargar_settings() -> Settings:
     envio = _texto("TELEGRAM_ENVIO", "api").lower()
     if envio not in {"api", "log"}:
         raise ConfiguracionInvalida("TELEGRAM_ENVIO debe ser api o log.")
+    clave = _texto("COORDINADOR_CLAVE")
+    if len(clave) < 8:
+        raise ConfiguracionInvalida(
+            "Falta COORDINADOR_CLAVE: los canales no hablan con el agente, solo con el coordinador. "
+            "Usa la misma clave del coordinador."
+        )
 
     return Settings(
-        a2a_url=_texto("A2A_CZZ_URL", "http://127.0.0.1:2029").rstrip("/"),
-        a2a_graph=_texto("A2A_CZZ_GRAPH", "agente_cz_A2A"),
-        a2a_timeout=_decimal("A2A_TIMEOUT", 180.0, 5.0, 600.0),
+        coordinador_url=_texto("COORDINADOR_URL", "http://127.0.0.1:8120").rstrip("/"),
+        coordinador_clave=clave,
+        timeout=_decimal("A2A_TIMEOUT", 180.0, 5.0, 600.0),
         host=_texto("CANALES_HOST", "127.0.0.1"),
         port=_entero("CANALES_PORT", 8100, 1, 65535),
         canales_token=_texto("CANALES_TOKEN"),

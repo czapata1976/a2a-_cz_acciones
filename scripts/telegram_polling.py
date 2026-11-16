@@ -23,8 +23,8 @@ RAIZ = Path(__file__).resolve().parents[1]
 if str(RAIZ) not in sys.path:
     sys.path.insert(0, str(RAIZ))
 
-from canales.agente import AgenteA2A  # noqa: E402
 from canales.config import cargar_settings  # noqa: E402
+from canales.coordinador import CoordinadorA2A  # noqa: E402
 from canales.telegram import enviar_telegram, extraer_mensaje, procesar_mensaje  # noqa: E402
 
 logger = logging.getLogger("canales.telegram_polling")
@@ -46,7 +46,9 @@ async def ejecutar(quitar_webhook: bool) -> int:
 
     app = SimpleNamespace(state=SimpleNamespace(
         settings=settings,
-        agente=AgenteA2A(settings.a2a_url, settings.a2a_graph, settings.a2a_timeout),
+        coordinador=CoordinadorA2A(
+            settings.coordinador_url, settings.coordinador_clave, settings.timeout
+        ),
         enviar_telegram=enviar_telegram,
     ))
 

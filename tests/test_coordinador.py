@@ -175,6 +175,31 @@ def test_elige_al_agente_de_procesos(cliente: TestClient, consultar: ConsultarFa
     assert consultar.llamadas[0][0] == "agente_procesos"
 
 
+def test_quien_pregunta_puede_fijar_el_agente(cliente: TestClient, consultar: ConsultarFalso):
+    """El chat web cierra su turno con el agente del proyecto, sin saltarse al coordinador."""
+    datos = cliente.post(
+        "/chat",
+        json={"mensaje": "Analiza NVDA en US", "cliente": "c-fijado", "agente": "agente_procesos"},
+        headers=CABECERA,
+    ).json()
+    assert datos["motivo"] == "ok"
+    assert datos["agente"] == "agente_procesos"
+    assert consultar.llamadas[0][0] == "agente_procesos"
+    assert "fijado" in datos["saltos"][0]["detalle"]
+
+
+def test_un_agente_fijado_que_no_esta_configurado_lo_dice(cliente: TestClient, consultar: ConsultarFalso):
+    datos = cliente.post(
+        "/chat",
+        json={"mensaje": "Analiza NVDA en US", "cliente": "c-fijado-2", "agente": "agente_fantasma"},
+        headers=CABECERA,
+    ).json()
+    assert datos["motivo"] == "no_configurado"
+    assert datos["agente"] is None
+    assert "agente_fantasma" in datos["respuesta"]
+    assert consultar.llamadas == []
+
+
 def test_saltos_muestran_la_eleccion(cliente: TestClient):
     datos = preguntar(cliente, "Analiza AAPL en bolsa").json()
     pasos = [salto["paso"] for salto in datos["saltos"]]

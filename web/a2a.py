@@ -13,7 +13,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from canales.agente import texto_de
+from canales.a2a import texto_de
 
 RUTA_TARJETA = "/.well-known/agent-card.json"
 
