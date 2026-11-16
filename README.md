@@ -639,8 +639,11 @@ cada uno, y a quién pedirle ayuda para automatizar un proceso.
   el panel pide la clave en el campo *Clave* y la guarda con ese agente; nunca vuelve por la API. El
   valor viaja en la cabecera que anuncie la ficha (`X-API-Key` en el agente de auditoría, `X-Agente-Clave`
   en `agente_cz_A2A`, `Authorization: Bearer` si declara HTTP Bearer) junto con `A2A-Version` cuando la
-  tarjeta publica `supportedInterfaces`. El botón **clave** de un agente ya agregado permite cambiarla
-  sin quitarlo del equipo. Sin la clave, el panel lo marca en ámbar como *requiere clave*.
+  tarjeta publica `supportedInterfaces`. Si el agente rechaza esa versión —su ficha anuncia `1.0` y su
+  manejador solo atiende `0.3`, como el agente de auditoría— la tarea se reintenta con `0.3` y, por
+  último, sin `A2A-Version`, así que el turno no se pierde por una ficha desalineada. El botón
+  **clave** de un agente ya agregado permite cambiarla sin quitarlo del equipo. Sin la clave, el panel
+  lo marca en ámbar como *requiere clave*.
 - Si la URL guardada es `http` y la ficha anuncia `https`, se consulta por `https` para no enviar la
   clave sin cifrar; si ese host solo escucha en `http`, se reintenta con la URL escrita.
 

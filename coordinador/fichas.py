@@ -14,6 +14,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
+from canales.a2a import endpoint_y_version, seguridad_de_tarjeta
 from coordinador.config import AgenteConfigurado
 
 RUTA_TARJETA = "/.well-known/agent-card.json"
@@ -40,6 +41,11 @@ class Ficha:
     estado: str = "no disponible"
     detalle: str = ""
     endpoint: str = ""
+    cabecera: str = "X-Agente-Clave"
+    """Cabecera donde el agente pide su clave, según su ficha."""
+    prefijo: str = ""
+    version: str = ""
+    """`protocolVersion` de la interfaz que anuncia la ficha (puede venir vacía)."""
 
     def resumen_skills(self) -> str:
         nombres = [str(s.get("name") or s.get("id") or "").strip() for s in self.skills]
@@ -205,7 +211,9 @@ async def leer_fichas(entradas: list[AgenteConfigurado], timeout: float = 15.0) 
                 ficha.nombre = str(datos.get("name") or entrada.url)
                 ficha.descripcion = str(datos.get("description") or "")
                 ficha.skills = list(datos.get("skills") or [])
-                ficha.endpoint = _endpoint_de(entrada.url, str(datos.get("url") or ""))
+                anunciado, ficha.version = endpoint_y_version(datos)
+                _, ficha.cabecera, ficha.prefijo = seguridad_de_tarjeta(datos)
+                ficha.endpoint = _endpoint_de(entrada.url, anunciado)
                 ficha.estado = "disponible"
                 ficha.detalle = ficha.endpoint
             except Exception as error:  # noqa: BLE001 - el estado se informa en la ficha

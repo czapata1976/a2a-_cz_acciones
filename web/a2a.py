@@ -13,12 +13,16 @@ from urllib.parse import urlsplit, urlunsplit
 
 import httpx
 
-from canales.a2a import texto_de
+from canales.a2a import (
+    CABECERA_CLAVE,
+    endpoint_y_version,
+    seguridad_de_tarjeta,
+    texto_de,
+    variantes_de_cabeceras,
+    version_rechazada,
+)
 
 RUTA_TARJETA = "/.well-known/agent-card.json"
-
-CABECERA_CLAVE = "X-Agente-Clave"
-"""Cabecera con la que este proyecto pide la clave cuando la ficha no dice otra cosa."""
 
 
 class ErrorAgenteRemoto(RuntimeError):
@@ -85,73 +89,6 @@ def _url_reenviada(base: str, url_tarjeta: str) -> str:
     return urlunsplit((esquema, anfitrion.netloc, anunciada.path or "/", anunciada.query, ""))
 
 
-def _detalle_esquema(esquema: object) -> dict:
-    """Aplana las dos formas en que una ficha A2A anida un esquema de seguridad."""
-    if not isinstance(esquema, dict):
-        return {}
-    for anidado in ("apiKeySecurityScheme", "httpSecurityScheme", "bearerSecurityScheme"):
-        if isinstance(esquema.get(anidado), dict):
-            return esquema[anidado]
-    return esquema
-
-
-def _nombres_requeridos(datos: dict) -> list[str]:
-    """Nombres de los esquemas que la ficha exige (`securityRequirements`/`security`)."""
-    nombres: list[str] = []
-    requisitos: list = []
-    for fuente in ("securityRequirements", "security_requirements", "security"):
-        valor = datos.get(fuente)
-        if isinstance(valor, list):
-            requisitos.extend(valor)
-    for requisito in requisitos:
-        if not isinstance(requisito, dict):
-            continue
-        esquemas = requisito.get("schemes") or requisito
-        if isinstance(esquemas, dict):
-            nombres.extend(str(nombre) for nombre in esquemas)
-        elif isinstance(esquemas, list):
-            nombres.extend(str(nombre) for nombre in esquemas if isinstance(nombre, str))
-    return nombres
-
-
-def _cabecera_de(detalle: dict) -> tuple[str, str]:
-    """(cabecera, prefijo) del esquema, o `("", "")` si no se autentica por cabecera."""
-    tipo = str(detalle.get("type") or "").lower()
-    mecanismo = str(detalle.get("scheme") or "").lower()
-    if tipo == "http" or mecanismo in {"bearer", "basic"}:
-        return ("Authorization", "Bearer ") if mecanismo == "bearer" else ("", "")
-    if tipo == "apikey" or detalle.get("name"):
-        if str(detalle.get("location") or "header").lower() != "header":
-            return "", ""
-        return str(detalle.get("name") or CABECERA_CLAVE), ""
-    return "", ""
-
-
-def _esquema_de_clave(datos: dict) -> tuple[bool, str, str]:
-    """(¿exige clave?, cabecera, prefijo) según cómo la declare la ficha.
-
-    Cubre el A2A actual (`securitySchemes` con `securityRequirements`, como el agente de
-    auditoría que usa `X-API-Key`), el formato propio anterior (`authentication.header`, como
-    `agente_cz_A2A`) y las fichas que no declaran nada.
-    """
-    declarados = datos.get("securitySchemes") or datos.get("security_schemes") or {}
-    if not isinstance(declarados, dict):
-        declarados = {}
-    requeridos = [nombre for nombre in _nombres_requeridos(datos) if nombre in declarados]
-    for nombre in requeridos or list(declarados):
-        detalle = _detalle_esquema(declarados.get(nombre))
-        cabecera, prefijo = _cabecera_de(detalle)
-        if cabecera:
-            return True, cabecera, prefijo
-        if detalle:  # exige credencial, pero no por cabecera (cookie, OAuth…)
-            return True, "", ""
-
-    heredado = datos.get("authentication")
-    if isinstance(heredado, dict) and heredado.get("header"):
-        return True, str(heredado["header"]), ""
-    return False, CABECERA_CLAVE, ""
-
-
 def _habilidades_de_tarjeta(datos: dict) -> tuple[str, ...]:
     """Skills de la ficha (nombre, para qué sirve y etiquetas), en una línea cada una."""
     habilidades: list[str] = []
@@ -173,21 +110,11 @@ def _agente_de_tarjeta(datos: object, base: str, assistant_id: str | None, clave
     if not isinstance(datos, dict):
         raise ErrorAgenteRemoto("La tarjeta A2A no es un objeto JSON.")
 
-    url = str(datos.get("url") or "")
-    version_protocolo = ""
-    if not url:
-        interfaces = datos.get("supportedInterfaces") or datos.get("supported_interfaces") or []
-        for interfaz in interfaces:
-            if isinstance(interfaz, dict) and interfaz.get("url"):
-                url = str(interfaz["url"])
-                version_protocolo = str(
-                    interfaz.get("protocolVersion") or interfaz.get("protocol_version") or ""
-                )
-                break
+    url, version_protocolo = endpoint_y_version(datos)
     if not url:
         raise ErrorAgenteRemoto("La tarjeta A2A no anuncia el endpoint de mensajes.")
 
-    requiere_clave, cabecera_clave, prefijo_clave = _esquema_de_clave(datos)
+    requiere_clave, cabecera_clave, prefijo_clave = seguridad_de_tarjeta(datos)
     return Agente(
         base=base,
         nombre=str(datos.get("name") or base),
@@ -270,12 +197,16 @@ def _con_ruta(agente: Agente, raiz: str, ruta_usuario: str) -> Agente:
 
 def cabeceras_de(agente: Agente) -> dict[str, str]:
     """Cabeceras de `message/send`: la clave viaja donde la ficha dice que va."""
-    cabeceras = {"Accept": "application/json"}
-    if agente.version_protocolo:
-        cabeceras["A2A-Version"] = agente.version_protocolo
-    if agente.clave and agente.cabecera_clave:
-        cabeceras[agente.cabecera_clave] = f"{agente.prefijo_clave}{agente.clave}"
-    return cabeceras
+    return variantes_de_cabeceras(
+        agente.clave, agente.cabecera_clave, agente.prefijo_clave, agente.version_protocolo
+    )[0]
+
+
+def _cabeceras_posibles(agente: Agente) -> list[dict[str, str]]:
+    """Variantes a probar: la anunciada, `0.3` y sin `A2A-Version` si el agente la rechaza."""
+    return variantes_de_cabeceras(
+        agente.clave, agente.cabecera_clave, agente.prefijo_clave, agente.version_protocolo
+    )
 
 
 def _destinos(agente: Agente) -> list[str]:
@@ -310,20 +241,26 @@ async def enviar(agente: Agente, texto: str, context_id: str, timeout: float = 1
     }
     destinos = _destinos(agente)
     datos = None
+    ultimo: object = None
     try:
         async with httpx.AsyncClient(timeout=timeout, trust_env=False) as cliente:
-            for destino in destinos:
-                try:
-                    respuesta = await cliente.post(
-                        destino, json=cuerpo, headers=cabeceras_de(agente)
-                    )
-                    respuesta.raise_for_status()
-                    datos = respuesta.json()
+            for posicion, destino in enumerate(destinos):
+                for cabeceras in _cabeceras_posibles(agente):
+                    try:
+                        respuesta = await cliente.post(destino, json=cuerpo, headers=cabeceras)
+                        respuesta.raise_for_status()
+                        candidato = respuesta.json()
+                    except httpx.ConnectError:
+                        if posicion == len(destinos) - 1:
+                            raise  # nadie escucha: se informa el fallo de conexión, no la versión
+                        break  # este host no escucha: se prueba el siguiente destino
+                    ultimo = candidato
+                    if version_rechazada(candidato):
+                        continue  # pide otra versión de A2A: se prueba la siguiente variante
+                    datos = candidato
                     break
-                except httpx.ConnectError:
-                    if destino == destinos[-1]:
-                        raise
-                    continue
+                if datos is not None:
+                    break
     except httpx.TimeoutException as error:
         raise ErrorAgenteRemoto(f"{agente.nombre} agotó el tiempo de respuesta.") from error
     except httpx.HTTPStatusError as error:
@@ -342,6 +279,9 @@ async def enviar(agente: Agente, texto: str, context_id: str, timeout: float = 1
     except ValueError as error:
         raise ErrorAgenteRemoto(f"{agente.nombre} devolvió una respuesta que no es JSON.") from error
 
+    if datos is None:
+        # Todas las variantes dieron error de versión: se informa el último, que lo explica.
+        datos = ultimo
     if not isinstance(datos, dict):
         raise ErrorAgenteRemoto(f"{agente.nombre} devolvió una respuesta inesperada.")
     if datos.get("error"):

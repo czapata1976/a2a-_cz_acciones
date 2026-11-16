@@ -97,7 +97,11 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
     local recibe en cada turno la ficha del equipo (`<equipo_a2a>`) para reconocer a cada colega. Cada
     remoto guarda su clave junto a su URL (en la fila del equipo, fuera de la API) y se envía en la
     cabecera que declare su ficha (`securitySchemes`: `X-API-Key`, `X-Agente-Clave` o
-    `Authorization: Bearer`), más `A2A-Version` cuando la tarjeta publica `supportedInterfaces`.
+    `Authorization: Bearer`), más `A2A-Version` cuando la tarjeta publica `supportedInterfaces`. Esa
+    lectura y el reintento de versión viven en `canales/a2a.py` y los usan el chat y el coordinador. Si el
+    agente rechaza esa versión (su ficha anuncia 1.0 y su manejador atiende 0.3), se reintenta la misma
+    tarea con `0.3` y, por último, sin `A2A-Version`: la clave y la versión se negocian en
+    `canales/a2a.py`, que comparten el chat web y el coordinador.
 15. La ficha y `/salud` del agente son públicas; `message/send` exige `AGENTE_CLAVE`. Sin clave configurada
     el agente falla cerrado (rechaza todo). Lo mismo en el coordinador con `/chat`, `/telegram` y
     `/whatsapp/mensaje`.

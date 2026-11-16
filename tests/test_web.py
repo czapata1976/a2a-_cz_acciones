@@ -6,7 +6,9 @@ real se prueba en `test_a2a_czz.py` y el coordinador en `test_coordinador.py`.
 """
 from __future__ import annotations
 
+import asyncio
 import os
+import socket
 from pathlib import Path
 
 import pytest
@@ -18,6 +20,8 @@ from web.almacen import Almacen, es_postgres
 from web.auth import crear_cookie, hash_clave
 from web.config import ConfiguracionInvalida, Settings, cargar_settings
 from web.main import NOMBRE_COOKIE, crear_app
+
+from tests.a2a_falso import servidor
 
 CLAVE = "clave-de-prueba-1234"
 SECRETO = "s" * 48
@@ -330,6 +334,64 @@ def test_una_url_http_no_baja_el_esquema_que_anuncia_la_ficha():
     tarjeta = {"name": "ale", "url": "https://agente.example.com/a2a"}
     remoto = a2a._agente_de_tarjeta(tarjeta, "http://agente.example.com", None)
     assert remoto.url_a2a == "https://agente.example.com/a2a"
+
+
+TARJETA_AUDITORIA = {
+    "name": "agente-ale-ubi",
+    "supportedInterfaces": [
+        {"url": "{base}/a2a", "protocolBinding": "JSONRPC", "protocolVersion": "1.0"}
+    ],
+    "securitySchemes": {
+        "apiKey": {"apiKeySecurityScheme": {"location": "header", "name": "X-API-Key"}}
+    },
+    "securityRequirements": [{"schemes": {"apiKey": {}}}],
+}
+
+
+def test_envia_la_clave_donde_la_pide_la_ficha_aunque_el_agente_quiera_otra_version():
+    """Caso real: X-API-Key y un manejador que espera `0.3` aunque la ficha anuncie `1.0`."""
+    with servidor(TARJETA_AUDITORIA, clave="k-123", versiones=("0.3",), texto="no cumple") as falso:
+        agente = asyncio.run(a2a.descubrir(falso.base, clave="k-123"))
+        assert agente.cabecera_clave == "X-API-Key"
+        texto = asyncio.run(a2a.enviar(agente, "¿cumple la empresa?", "ctx-1"))
+
+    assert texto == "no cumple"
+    consultas = [p for p in falso.peticiones if p["path"].rstrip("/") == "/a2a"]
+    assert [p["headers"].get("A2A-Version") for p in consultas] == ["1.0", "0.3"]
+    assert all(p["headers"].get("X-API-Key") == "k-123" for p in consultas)
+
+
+def test_lee_una_respuesta_que_es_un_mensaje_y_no_una_tarea():
+    with servidor(TARJETA_AUDITORIA, clave="k-123", texto="alerta en el SII") as falso:
+        agente = asyncio.run(a2a.descubrir(falso.base, clave="k-123"))
+        assert asyncio.run(a2a.enviar(agente, "hola", "ctx-2")) == "alerta en el SII"
+
+
+def test_sin_cabecera_de_version_tambien_habla_con_el_agente():
+    # Tercera variante: hay servidores que rechazan toda versión y solo aceptan sin `A2A-Version`.
+    with servidor(TARJETA_AUDITORIA, clave="k-123", versiones=("0.2",), texto="responde igual") as falso:
+        agente = asyncio.run(a2a.descubrir(falso.base, clave="k-123"))
+        assert asyncio.run(a2a.enviar(agente, "hola", "ctx-3")) == "responde igual"
+
+    consultas = [p for p in falso.peticiones if p["path"].rstrip("/") == "/a2a"]
+    assert [p["headers"].get("A2A-Version") for p in consultas] == ["1.0", "0.3", None]
+
+
+def test_agente_que_no_escucha_se_informa_por_su_nombre():
+    # Sin conexión no hay nada que reintentar: el aviso habla del agente caído, no de su versión.
+    with socket.socket() as libre:
+        libre.bind(("127.0.0.1", 0))
+        puerto = libre.getsockname()[1]
+    remoto = a2a.Agente(
+        base=f"http://127.0.0.1:{puerto}",
+        nombre="agente-caido",
+        url_a2a=f"http://127.0.0.1:{puerto}/a2a",
+        assistant_id=None,
+        version_protocolo="1.0",
+    )
+    with pytest.raises(a2a.ErrorAgenteRemoto) as error:
+        asyncio.run(a2a.enviar(remoto, "hola", "ctx-4", timeout=8.0))
+    assert "No pude comunicarme con agente-caido" in str(error.value)
 
 
 def test_tarjeta_aporta_descripcion_y_habilidades():

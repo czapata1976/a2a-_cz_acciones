@@ -6,14 +6,19 @@ avisar cuando un agente está caído.
 """
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 from fastapi.testclient import TestClient
 
+from canales.a2a import texto_de
 from coordinador import a2a, canal
 from coordinador.config import AgenteConfigurado, ConfiguracionInvalida, Settings, cargar_settings
-from coordinador.fichas import Ficha
+from coordinador.fichas import Ficha, leer_fichas
 from coordinador.main import crear_app
 from coordinador.supervisor import NO_LEIBLE, Supervisor
+
+from tests.a2a_falso import servidor
 
 CLAVE = "clave-coordinador-prueba"
 SECRETO = "secreto-telegram-prueba"
@@ -320,7 +325,7 @@ def test_lee_el_texto_de_status_message():
         "status": {"state": "completed", "message": {"role": "agent", "parts": [{"kind": "text", "text": "hola"}]}},
         "artifacts": [],
     }
-    assert a2a._texto_de(resultado) == "hola"
+    assert texto_de(resultado) == "hola"
 
 
 def test_prefiere_artefactos_sobre_status():
@@ -328,7 +333,58 @@ def test_prefiere_artefactos_sobre_status():
         "status": {"state": "completed", "message": {"parts": [{"kind": "text", "text": "resumen"}]}},
         "artifacts": [{"parts": [{"kind": "text", "text": "texto completo"}]}],
     }
-    assert a2a._texto_de(resultado) == "texto completo"
+    assert texto_de(resultado) == "texto completo"
+
+
+def test_lee_un_mensaje_completo_en_result():
+    # el agente de auditoría devuelve un Message (parts en la raíz), no una Task
+    resultado = {
+        "kind": "message",
+        "messageId": "abc",
+        "contextId": "ctx",
+        "parts": [{"kind": "text", "text": "no cumple"}],
+    }
+    assert texto_de(resultado) == "no cumple"
+
+
+TARJETA_AUDITORIA = {
+    "name": "agente-ale-ubi",
+    "supportedInterfaces": [
+        {"url": "{base}/a2a", "protocolBinding": "JSONRPC", "protocolVersion": "1.0"}
+    ],
+    "securitySchemes": {
+        "apiKey": {"apiKeySecurityScheme": {"location": "header", "name": "X-API-Key"}}
+    },
+    "securityRequirements": [{"schemes": {"apiKey": {}}}],
+}
+
+
+def test_leer_fichas_guarda_la_cabecera_y_la_version_de_la_tarjeta():
+    with servidor(TARJETA_AUDITORIA, clave="k-123") as falso:
+        fichas = asyncio.run(leer_fichas([AgenteConfigurado(url=falso.base, clave="k-123")]))
+    assert fichas[0].estado == "disponible"
+    assert fichas[0].cabecera == "X-API-Key"
+    assert fichas[0].version == "1.0"
+    assert fichas[0].endpoint == f"{falso.base}/a2a"
+
+
+def test_consultar_usa_la_cabecera_de_la_ficha_y_negocia_la_version():
+    """El agente anuncia A2A 1.0 pero su manejador solo acepta 0.3 en la cabecera."""
+    with servidor(TARJETA_AUDITORIA, clave="k-123", versiones=("0.3",), texto="no cumple") as falso:
+        ficha = Ficha(
+            url=falso.base,
+            nombre="agente-ale-ubi",
+            endpoint=f"{falso.base}/a2a",
+            clave="k-123",
+            cabecera="X-API-Key",
+            version="1.0",
+            estado="disponible",
+        )
+        texto = asyncio.run(a2a.consultar(ficha, "¿cumple la empresa?", "ctx-1"))
+    assert texto == "no cumple"
+    versiones = [p["headers"].get("A2A-Version") for p in falso.peticiones]
+    assert versiones == ["1.0", "0.3"]
+    assert all(p["headers"].get("X-API-Key") == "k-123" for p in falso.peticiones)
 
 
 def test_recupera_un_agente_que_estaba_caido_al_arrancar(monkeypatch, consultar):
