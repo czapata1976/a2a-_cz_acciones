@@ -85,7 +85,9 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 9. Esta copia no depende de `mi-agente-cz`: si se borra el original, el servicio sigue funcionando.
 10. Los canales son **clientes del coordinador**: no importan `src/agente_acciones` ni conocen la URL
     del agente; le pasan la consulta a `POST /chat` con `COORDINADOR_CLAVE`. El agente solo responde al
-    coordinador, que es el único que guarda `AGENTE_CLAVE`.
+    coordinador, que es el único que guarda `AGENTE_CLAVE`. El equipo del chat (`czz_equipo`) y
+    `URLS_AGENTES` son listas distintas: un agente agregado en el panel responde por Telegram o WhatsApp
+    solo si también está en `URLS_AGENTES`, con su clave.
 11. El puente de WhatsApp escucha solo en `127.0.0.1`, exige `WHATSAPP_SECRET` y su sesión
     (`whatsapp/.runtime/`) nunca se versiona ni se copia a otro proyecto. En producción vive dentro de
     `coordinador-cz-acciones` (`WHATSAPP_PUENTE=true`) y su sesión se guarda cifrada en Postgres

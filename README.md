@@ -638,6 +638,10 @@ y a quién pedirle ayuda para automatizar un proceso.
 
 - Se agregan por URL (`http` o `https`) y se validan contra la tarjeta antes de guardarlas.
 - Tope de **4** agentes remotos; al llegar al tope hay que quitar uno.
+- **El equipo del panel es del chat, no del coordinador.** Telegram y WhatsApp pasan por el
+  coordinador, que solo conoce los agentes de `URLS_AGENTES`: si agregas un agente aquí y quieres que
+  también responda por esos canales, agrégalo a `URLS_AGENTES` con su clave (o el coordinador
+  contestará «No tengo un agente para eso»).
 - La URL de la tarjeta se reescribe al host que escribiste: un agente publicado por túnel anuncia su
   `127.0.0.1`, que solo existe en su máquina.
 - **Clave por agente.** Si la tarjeta declara que `message/send` exige credencial (`securitySchemes`),
