@@ -87,23 +87,37 @@ def _cabecera_de(detalle: dict) -> tuple[str, str]:
     return "", ""
 
 
+def _hay_requisitos(datos: dict) -> bool:
+    """¿La ficha declara explícitamente qué esquemas exige?"""
+    for fuente in ("securityRequirements", "security_requirements", "security"):
+        valor = datos.get(fuente)
+        if isinstance(valor, list) and valor:
+            return True
+    return False
+
+
 def seguridad_de_tarjeta(datos: dict) -> tuple[bool, str, str]:
     """(¿exige clave?, cabecera, prefijo) según cómo la declare la ficha.
 
     Cubre el A2A actual (`securitySchemes` con `securityRequirements`, como el agente de auditoría
     que usa `X-API-Key`), el formato propio anterior (`authentication.header`, como
     `agente_cz_A2A`) y las fichas que no declaran nada.
+
+    Una ficha que **declara** esquemas pero no declara requisitos los ofrece como opcionales (hay
+    agentes así: anuncian `bearer` y responden sin clave). En ese caso no se exige credencial, pero
+    se recuerda la cabecera para el caso de que el usuario guarde una.
     """
     declarados = datos.get("securitySchemes") or datos.get("security_schemes") or {}
     if not isinstance(declarados, dict):
         declarados = {}
     requeridos = [nombre for nombre in _nombres_requeridos(datos) if nombre in declarados]
+    obligatorio = bool(requeridos) or (_hay_requisitos(datos) and bool(declarados))
     for nombre in requeridos or list(declarados):
         detalle = _detalle_esquema(declarados.get(nombre))
         cabecera, prefijo = _cabecera_de(detalle)
         if cabecera:
-            return True, cabecera, prefijo
-        if detalle:  # exige credencial, pero no por cabecera (cookie, OAuth…)
+            return obligatorio, cabecera, prefijo
+        if detalle and obligatorio:  # exige credencial, pero no por cabecera (cookie, OAuth…)
             return True, "", ""
 
     heredado = datos.get("authentication")

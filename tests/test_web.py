@@ -317,6 +317,24 @@ def test_ficha_propia_con_authentication_indica_su_cabecera():
     assert a2a.cabeceras_de(remoto)["X-Agente-Clave"] == "k"
 
 
+def test_ficha_que_declara_esquema_sin_requisito_no_exige_clave():
+    """Como agente_bryhan: anuncia bearerAuth, pero securityRequirements está vacío."""
+    tarjeta = {
+        "name": "agente_bryhan",
+        "url": "https://host.example.com/a2a",
+        "securitySchemes": {"bearerAuth": {"type": "http", "scheme": "bearer"}},
+        "securityRequirements": None,
+    }
+    remoto = a2a._agente_de_tarjeta(tarjeta, "https://host.example.com", None)
+    assert remoto.requiere_clave is False
+    # La cabecera se recuerda por si el usuario guarda una clave, y no se envía credencial vacía.
+    assert remoto.cabecera_clave == "Authorization"
+    assert a2a.cabeceras_de(remoto) == {"Accept": "application/json"}
+    # Con clave guardada, viaja en la cabecera que declara la ficha.
+    con_clave = a2a._agente_de_tarjeta(tarjeta, "https://host.example.com", None, "k")
+    assert a2a.cabeceras_de(con_clave)["Authorization"] == "Bearer k"
+
+
 def test_tarjeta_sin_esquema_no_exige_clave():
     tarjeta = {"name": "remoto", "url": "https://host.example.com/a2a"}
     remoto = a2a._agente_de_tarjeta(tarjeta, "https://host.example.com", None, "k")
