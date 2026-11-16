@@ -151,6 +151,18 @@ def test_telegram_sin_secreto_rechaza(cliente: TestClient):
     assert respuesta.status_code == 401
 
 
+def test_no_registra_las_urls_con_secretos():
+    """El token del bot va en la URL de la Bot API: httpx no puede escribirla en los logs."""
+    import logging
+
+    fichas = [ficha_acciones()]
+    supervisor = Supervisor(fichas, consultar=ConsultarFalso())
+    with TestClient(crear_app(settings(), fichas, supervisor)):
+        pass
+    assert logging.getLogger("httpx").level == logging.WARNING
+    assert logging.getLogger("httpcore").level == logging.WARNING
+
+
 def test_salud_y_agentes_son_publicos(cliente: TestClient):
     salud = cliente.get("/salud")
     assert salud.headers["content-type"].startswith("application/json")

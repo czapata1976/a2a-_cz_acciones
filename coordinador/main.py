@@ -50,6 +50,11 @@ def crear_app(
 ) -> FastAPI:
     settings = settings or cargar_settings()
 
+    # La URL de la Bot API lleva el token y las llamadas A2A llevan la clave del agente: httpx no
+    # debe registrarlas en los logs del dyno.
+    for ruidoso in ("httpx", "httpcore"):
+        logging.getLogger(ruidoso).setLevel(logging.WARNING)
+
     @asynccontextmanager
     async def ciclo(app: FastAPI):
         if fichas is None:
