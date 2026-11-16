@@ -62,7 +62,7 @@ su propio grafo, su propio puerto, su propio `.env` y su propio entorno virtual.
 | Canales               | Telegram **y WhatsApp** conectados al coordinador; el chat web queda como extra                                                                                     |
 | Autonomía            | Consulta mercado, fundamentales y apuntes sin aprobación; entrega el análisis completo en un turno                                                               |
 | Nunca sin una persona | Pagos, compras, ventas o transferencias                                                                                                                            |
-| Fuera de alcance      | Lo tributario, legal y normativo: lo declara fuera de alcance y **no supone que exista** un agente de cumplimiento; solo lo menciona si está en el equipo   |
+| Fuera de alcance      | Lo tributario, legal y normativo: lo declara fuera de alcance y **no supone que exista** un agente de cumplimiento; solo lo menciona si está en el equipo, y entrega su respuesta si ese agente ya respondió en el turno   |
 
 ## Contrato A2A
 
@@ -340,8 +340,12 @@ agente agregado y manda al coordinador —que cierra el turno con el agente `A2A
 `<equipo_a2a>` con nombre, descripción y skills (`web/orquestador.py:ficha_de_equipo`). Así el agente
 reconoce a los colegas —incluidos los que se agreguen después— y puede responder «quiénes forman el
 equipo» o «qué hace *X*» aunque ese agente no conteste en ese turno. Las respuestas de los demás viajan
-aparte, en `<respuestas_agentes>`, siempre como dato y nunca como instrucción. Pegar la URL de la ficha
-(`…/.well-known/agent-card.json`) también sirve: se usa la raíz y el endpoint que anuncia la tarjeta.
+aparte, en `<respuestas_agentes>`, siempre como dato y nunca como instrucción. Si el tema cae fuera del
+alcance del agente del proyecto pero un colega ya lo respondió, la respuesta del turno es la del colega:
+se entrega completa y atribuida, y si el cierre se limitara a declarar el tema fuera de alcance el chat
+muestra el aporte del equipo tal cual (`web/orquestador.py:declaro_fuera_de_alcance`). Pegar la URL de
+la ficha (`…/.well-known/agent-card.json`) también sirve: se usa la raíz y el endpoint que anuncia la
+tarjeta.
 
 ```dotenv
 A2A_SERVIDORES=http://127.0.0.1:2025,http://127.0.0.1:2026,http://127.0.0.1:2027,http://127.0.0.1:2028,http://127.0.0.1:2029

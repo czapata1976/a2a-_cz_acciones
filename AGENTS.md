@@ -123,7 +123,7 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 - Necesita el **ticker** y el **mercado** para consultar una acción; si faltan, los pide al final en una sola pregunta.
 - Si falta el perfil de riesgo o el horizonte, entrega el análisis condicionado y los pide al final: no bloquea el turno.
 - Nunca ejecuta pagos, compras, ventas ni transferencias: eso lo decide y lo hace una persona.
-- Lo tributario y lo legal queda fuera de su alcance: lo dice y no inventa un especialista al que derivar. Solo menciona un agente de cumplimiento si el equipo del proyecto lo incluye (`<equipo_a2a>`).
+- Lo tributario y lo legal queda fuera de su alcance: lo dice y no inventa un especialista al que derivar. Solo menciona un agente de cumplimiento si el equipo del proyecto lo incluye (`<equipo_a2a>`); si ese agente ya respondió en el turno (`<respuestas_agentes>`), entrega su respuesta como la del turno, completa y atribuida, en lugar de quedarse en la negativa.
 - Los datos de mercado y fundamentales son simulados del taller: siempre cita la fecha de corte.
 
 ## Estructura
