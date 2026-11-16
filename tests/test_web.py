@@ -329,6 +329,15 @@ def test_tarjeta_sin_esquema_no_exige_clave():
     }
 
 
+def test_la_ruta_a2a_es_la_raiz_del_agente():
+    # Pegar el endpoint que anuncia la ficha (`/a2a`) no debe registrar un segundo agente igual.
+    assert a2a.normalizar_url("https://host.example.com/a2a") == "https://host.example.com"
+    assert a2a.normalizar_url("https://host.example.com/a2a/") == "https://host.example.com"
+    # Con identificador sí es un endpoint propio (Cloud Run) y se respeta.
+    assert a2a.normalizar_url("https://host.example.com/a2a/abc-123") == \
+        "https://host.example.com/a2a/abc-123"
+
+
 def test_una_url_http_no_baja_el_esquema_que_anuncia_la_ficha():
     # La clave de un agente no debe viajar sin cifrar solo porque la URL guardada diga http.
     tarjeta = {"name": "ale", "url": "https://agente.example.com/a2a"}

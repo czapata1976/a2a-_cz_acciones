@@ -51,7 +51,12 @@ class Agente:
 
 
 def normalizar_url(url: str) -> str:
-    """Valida la URL de un agente y la deja sin barra final."""
+    """Valida la URL de un agente y la deja sin barra final.
+
+    Una ruta `/a2a` es el endpoint que la propia ficha anuncia, así que se colapsa a la raíz: pegar
+    `https://host/a2a` o `https://host` registra al mismo agente y no lo duplica en el equipo. Las
+    rutas con identificador (`/a2a/<uuid>`, típicas de Cloud Run) sí se conservan.
+    """
     limpio = (url or "").strip()
     partes = urlsplit(limpio)
     if partes.scheme not in {"http", "https"}:
@@ -62,7 +67,10 @@ def normalizar_url(url: str) -> str:
         raise ErrorAgenteRemoto("La URL no debe llevar usuario ni clave.")
     if partes.fragment or partes.query:
         raise ErrorAgenteRemoto("La URL no debe llevar parámetros ni fragmentos.")
-    return urlunsplit((partes.scheme, partes.netloc, partes.path.rstrip("/"), "", ""))
+    ruta = partes.path.rstrip("/")
+    if ruta == "/a2a":
+        ruta = ""
+    return urlunsplit((partes.scheme, partes.netloc, ruta, "", ""))
 
 
 def ruta_de_usuario(url: str) -> str:
