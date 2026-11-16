@@ -1,0 +1,39 @@
+meta {
+  name: 07 · ale sin clave (debe fallar)
+  type: http
+  seq: 7
+}
+
+post {
+  url: {{ale}}/a2a
+  body: json
+  auth: none
+}
+
+headers {
+  Accept: application/json
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": "bruno-ale-5",
+    "method": "SendMessage",
+    "params": {
+      "message": {
+        "message_id": "bruno-ale-m5",
+        "context_id": "{{ale_contexto}}",
+        "role": "ROLE_USER",
+        "parts": [{ "text": "hola" }]
+      }
+    }
+  }
+}
+
+assert {
+  res.status: eq 401
+}
+
+docs {
+  Sin `X-API-Key` el agente falla cerrado. La ficha y /salud siguen siendo públicas (01 y 02).
+}

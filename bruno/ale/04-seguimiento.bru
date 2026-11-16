@@ -1,0 +1,50 @@
+meta {
+  name: 04 · ale seguimiento (memoria)
+  type: http
+  seq: 4
+}
+
+post {
+  url: {{ale}}/a2a
+  body: json
+  auth: none
+}
+
+headers {
+  X-API-Key: {{process.env.ALE_API_KEY}}
+  Accept: application/json
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": "bruno-ale-2",
+    "method": "SendMessage",
+    "params": {
+      "message": {
+        "message_id": "bruno-ale-m2",
+        "context_id": "{{ale_contexto}}",
+        "role": "ROLE_USER",
+        "parts": [{ "text": "¿Y tiene sanciones vigentes en la CMF?" }]
+      }
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.result: isDefined
+}
+
+tests {
+  test("siguió el hilo del RUT anterior", function() {
+    const texto = JSON.stringify(res.getBody().result);
+    expect(texto).to.match(/77\.?987\.?654|RUT|empresa/i);
+  });
+}
+
+docs {
+  Corre **después** del 03 y con el mismo `{{ale_contexto}}`: la pregunta solo se entiende con el
+  turno anterior. Si cambias el `context_id`, la respuesta correcta es que pregunte por el RUT:
+  así se comprueba que no mezcla conversaciones.
+}

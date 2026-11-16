@@ -1,0 +1,45 @@
+meta {
+  name: 09 · ale método viejo (diagnóstico)
+  type: http
+  seq: 9
+}
+
+post {
+  url: {{ale}}/a2a
+  body: json
+  auth: none
+}
+
+headers {
+  X-API-Key: {{process.env.ALE_API_KEY}}
+  Accept: application/json
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": "bruno-ale-7",
+    "method": "message/send",
+    "params": {
+      "message": {
+        "role": "user",
+        "messageId": "bruno-ale-m7",
+        "contextId": "{{ale_contexto}}",
+        "parts": [{ "kind": "text", "text": "hola" }]
+      }
+    }
+  }
+}
+
+tests {
+  test("el servidor contestó un JSON-RPC", function() {
+    const b = res.getBody();
+    expect(b.result || b.error).to.be.ok;
+  });
+}
+
+docs {
+  Solo diagnóstico: manda el formato A2A anterior (`message/send`) para ver qué contesta este
+  servidor, que documenta `SendMessage`. Si devuelve «method not found», el 03 es el bueno y este
+  se ignora. Si responde igual que el 03, acepta los dos formatos.
+}

@@ -1,0 +1,48 @@
+meta {
+  name: 08 · ale clave inválida (debe fallar)
+  type: http
+  seq: 8
+}
+
+post {
+  url: {{ale}}/a2a
+  body: json
+  auth: none
+}
+
+headers {
+  X-API-Key: clave-que-no-existe
+  Accept: application/json
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": "bruno-ale-6",
+    "method": "SendMessage",
+    "params": {
+      "message": {
+        "message_id": "bruno-ale-m6",
+        "context_id": "{{ale_contexto}}",
+        "role": "ROLE_USER",
+        "parts": [{ "text": "hola" }]
+      }
+    }
+  }
+}
+
+assert {
+  res.status: eq 401
+}
+
+tests {
+  test("el error dice por qué", function() {
+    expect(res.getBody().detail).to.contain("Clave");
+  });
+}
+
+docs {
+  Distingue «falta la clave» de «la clave no sirve»: con una clave equivocada el mensaje es el
+  mismo 401, así que si este pasa y el 03 también da 401, la `ALE_API_KEY` configurada no es la
+  que el servidor tiene en `API_KEYS` (clave rotada o copiada incompleta).
+}

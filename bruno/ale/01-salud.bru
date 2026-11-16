@@ -1,0 +1,23 @@
+meta {
+  name: 01 · ale salud
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{ale}}/salud
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.status: eq ok
+  res.body.acceso_configurado: eq true
+}
+
+docs {
+  Público, sin clave. Si `acceso_configurado` viene en `false`, el servicio rechazará todo
+  `message/send` aunque la clave sea correcta. Si aquí dice `true` y el 03 da 401, el problema es
+  la clave, no el despliegue.
+}

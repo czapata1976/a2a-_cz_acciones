@@ -1,0 +1,24 @@
+meta {
+  name: 02 · ale ficha
+  type: http
+  seq: 2
+}
+
+get {
+  url: {{ale}}/.well-known/agent-card.json
+  body: none
+  auth: none
+}
+
+assert {
+  res.status: eq 200
+  res.body.name: eq {{ale_grafo}}
+  res.body.skills: isDefined
+  res.body.securitySchemes: isDefined
+}
+
+docs {
+  Público. La ficha es lo que lee otro agente para descubrirla: dice su endpoint A2A
+  (`supportedInterfaces[0].url`), que la clave va en la cabecera `X-API-Key`
+  (`securitySchemes.apiKey`) y qué skills ofrece (SII, CMF, fondos, checklist).
+}

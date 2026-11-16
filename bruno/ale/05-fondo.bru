@@ -1,0 +1,50 @@
+meta {
+  name: 05 · ale auditoría de fondo
+  type: http
+  seq: 5
+}
+
+post {
+  url: {{ale}}/a2a
+  body: json
+  auth: none
+}
+
+headers {
+  X-API-Key: {{process.env.ALE_API_KEY}}
+  Accept: application/json
+}
+
+body:json {
+  {
+    "jsonrpc": "2.0",
+    "id": "bruno-ale-3",
+    "method": "SendMessage",
+    "params": {
+      "message": {
+        "message_id": "bruno-ale-m3",
+        "context_id": "{{ale_contexto}}",
+        "role": "ROLE_USER",
+        "parts": [{ "text": "Revisa el cumplimiento normativo del fondo FM Inmobiliario" }]
+      }
+    }
+  }
+}
+
+assert {
+  res.status: eq 200
+  res.body.result: isDefined
+}
+
+tests {
+  test("habla de concentración, TER o NCG 365", function() {
+    const texto = JSON.stringify(res.getBody().result);
+    expect(texto).to.match(/concentraci|TER|NCG\s*365|rentabilidad/i);
+  });
+}
+
+docs {
+  Segunda skill de la ficha. Debe cruzar concentración por emisor contra el límite del 20% de la
+  NCG 365 y calcular la rentabilidad neta (12m − TER), sin inventar cifras: los datos son simulados
+  del taller y debe citar la fecha de corte.
+}
