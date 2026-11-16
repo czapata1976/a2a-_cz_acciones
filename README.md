@@ -616,6 +616,14 @@ cada uno, y a quién pedirle ayuda para automatizar un proceso.
 - Tope de **4** agentes remotos; al llegar al tope hay que quitar uno.
 - La URL de la tarjeta se reescribe al host que escribiste: un agente publicado por túnel anuncia su
   `127.0.0.1`, que solo existe en su máquina.
+- **Clave por agente.** Si la tarjeta declara que `message/send` exige credencial (`securitySchemes`),
+  el panel pide la clave en el campo *Clave* y la guarda con ese agente; nunca vuelve por la API. El
+  valor viaja en la cabecera que anuncie la ficha (`X-API-Key` en el agente de auditoría, `X-Agente-Clave`
+  en `agente_cz_A2A`, `Authorization: Bearer` si declara HTTP Bearer) junto con `A2A-Version` cuando la
+  tarjeta publica `supportedInterfaces`. El botón **clave** de un agente ya agregado permite cambiarla
+  sin quitarlo del equipo. Sin la clave, el panel lo marca en ámbar como *requiere clave*.
+- Si la URL guardada es `http` y la ficha anuncia `https`, se consulta por `https` para no enviar la
+  clave sin cifrar; si ese host solo escucha en `http`, se reintenta con la URL escrita.
 
 ### Endpoints
 
@@ -623,7 +631,7 @@ cada uno, y a quién pedirle ayuda para automatizar un proceso.
 | --------------------- | --------------------------------- | ---------------------------------------- |
 | POST                  | `/api/login` · `/api/logout` | Sesión con cookie firmada               |
 | GET                   | `/api/sesion`                   | Usuario, agente y tope de equipo         |
-| GET · POST · DELETE | `/api/agentes`                  | Equipo (máximo 4, validado por tarjeta) |
+| GET · POST · DELETE | `/api/agentes`                  | Equipo (máximo 4, validado por tarjeta; `clave` opcional por agente) |
 | GET · POST           | `/api/charlas`                  | Conversaciones guardadas en SQLite       |
 | GET · DELETE         | `/api/charlas/{id}`             | Historial y borrado                      |
 | POST                  | `/api/charlas/{id}/mensaje`     | Turno A2A completo con su traza          |

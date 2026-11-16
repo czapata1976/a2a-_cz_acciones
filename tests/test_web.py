@@ -237,6 +237,80 @@ def test_url_de_la_ficha_se_trata_como_raiz():
         "https://host.example.com/a2a/abc"
 
 
+def test_tarjeta_que_pide_clave_por_cabecera_dice_cual():
+    # Ficha real del agente de auditoría: `supportedInterfaces`, `securitySchemes` y su requisito.
+    tarjeta = {
+        "name": "agente-ale-ubi",
+        "supportedInterfaces": [
+            {
+                "url": "https://agente.example.com/a2a",
+                "protocolBinding": "JSONRPC",
+                "protocolVersion": "1.0",
+            }
+        ],
+        "securitySchemes": {
+            "apiKey": {
+                "apiKeySecurityScheme": {
+                    "description": "Clave de acceso configurada en el servidor (API_KEYS).",
+                    "location": "header",
+                    "name": "X-API-Key",
+                }
+            }
+        },
+        "securityRequirements": [{"schemes": {"apiKey": {}}}],
+    }
+    remoto = a2a._agente_de_tarjeta(tarjeta, "https://agente.example.com", None, "k-123")
+    assert remoto.requiere_clave
+    assert remoto.cabecera_clave == "X-API-Key"
+    cabeceras = a2a.cabeceras_de(remoto)
+    assert cabeceras["X-API-Key"] == "k-123"
+    # Su endpoint exige la versión de protocolo que anuncia la interfaz.
+    assert cabeceras["A2A-Version"] == "1.0"
+    assert "Authorization" not in cabeceras
+
+
+def test_tarjeta_con_bearer_usa_authorization():
+    tarjeta = {
+        "name": "remoto",
+        "url": "https://host.example.com/a2a",
+        "securitySchemes": {"bearer": {"type": "http", "scheme": "bearer"}},
+        "securityRequirements": [{"schemes": {"bearer": {}}}],
+    }
+    remoto = a2a._agente_de_tarjeta(tarjeta, "https://host.example.com", None, "k")
+    assert remoto.cabecera_clave == "Authorization"
+    assert a2a.cabeceras_de(remoto)["Authorization"] == "Bearer k"
+
+
+def test_ficha_propia_con_authentication_indica_su_cabecera():
+    tarjeta = {
+        "name": "agente_cz_A2A",
+        "url": "https://host.example.com/a2a",
+        "authentication": {"schemes": ["apiKey"], "header": "X-Agente-Clave"},
+    }
+    remoto = a2a._agente_de_tarjeta(tarjeta, "https://host.example.com", None, "k")
+    assert remoto.requiere_clave
+    assert a2a.cabeceras_de(remoto)["X-Agente-Clave"] == "k"
+
+
+def test_tarjeta_sin_esquema_no_exige_clave():
+    tarjeta = {"name": "remoto", "url": "https://host.example.com/a2a"}
+    remoto = a2a._agente_de_tarjeta(tarjeta, "https://host.example.com", None, "k")
+    assert remoto.requiere_clave is False
+    # Sin declaración se mantiene la cabecera propia del proyecto.
+    assert a2a.cabeceras_de(remoto) == {"Accept": "application/json", "X-Agente-Clave": "k"}
+    # Y sin clave no se envía credencial ninguna.
+    assert a2a.cabeceras_de(a2a._agente_de_tarjeta(tarjeta, "https://host.example.com", None)) == {
+        "Accept": "application/json"
+    }
+
+
+def test_una_url_http_no_baja_el_esquema_que_anuncia_la_ficha():
+    # La clave de un agente no debe viajar sin cifrar solo porque la URL guardada diga http.
+    tarjeta = {"name": "ale", "url": "https://agente.example.com/a2a"}
+    remoto = a2a._agente_de_tarjeta(tarjeta, "http://agente.example.com", None)
+    assert remoto.url_a2a == "https://agente.example.com/a2a"
+
+
 def test_tarjeta_aporta_descripcion_y_habilidades():
     tarjeta = {
         "name": "agente_bryhan",
@@ -287,6 +361,69 @@ def test_equipo_agente_inalcanzable(cliente: TestClient, monkeypatch):
     assert respuesta.status_code == 400
     assert "no respondió" in respuesta.json()["detail"]
     assert cliente.get("/api/agentes").json()["remotos"][0]["estado"] == "no disponible"
+
+
+def test_la_clave_del_agente_se_guarda_y_llega_al_turno(cliente: TestClient, monkeypatch):
+    entrar(cliente)
+    vistas: dict[str, str] = {}
+
+    async def descubrir(base: str, timeout: float = 15.0, clave: str = "") -> a2a.Agente:
+        vistas[base] = clave
+        return agente(base)
+
+    async def enviar(instancia: a2a.Agente, texto: str, context_id: str, timeout: float = 180.0) -> str:
+        return "síntesis del equipo" if instancia.base == LOCAL else "aporte"
+
+    monkeypatch.setattr(a2a, "descubrir", descubrir)
+    monkeypatch.setattr(a2a, "enviar", enviar)
+
+    alta = cliente.post(
+        "/api/agentes",
+        json={"url": "https://ale.example.com", "clave": "clave-de-ale"},
+        headers=CABECERAS,
+    )
+    assert alta.status_code == 200
+    # La credencial se guarda, pero nunca vuelve por la API.
+    assert "clave-de-ale" not in cliente.get("/api/agentes").text
+
+    charla = cliente.post("/api/charlas", headers=CABECERAS).json()["id"]
+    cliente.post(f"/api/charlas/{charla}/mensaje", json={"texto": "¿cumple?"}, headers=CABECERAS)
+    assert vistas["https://ale.example.com"] == "clave-de-ale"
+
+    # Volver a agregarlo sin clave (por ejemplo para refrescar el nombre) no la borra.
+    cliente.post("/api/agentes", json={"url": "https://ale.example.com"}, headers=CABECERAS)
+    charla = cliente.post("/api/charlas", headers=CABECERAS).json()["id"]
+    cliente.post(f"/api/charlas/{charla}/mensaje", json={"texto": "otra"}, headers=CABECERAS)
+    assert vistas["https://ale.example.com"] == "clave-de-ale"
+
+
+def test_panel_avisa_cuando_falta_la_clave(cliente: TestClient, monkeypatch):
+    entrar(cliente)
+
+    async def descubrir(base: str, timeout: float = 15.0, clave: str = "") -> a2a.Agente:
+        return a2a.Agente(
+            base=base,
+            nombre="agente-ale-ubi",
+            url_a2a=f"{base}/a2a",
+            assistant_id=None,
+            clave=clave,
+            requiere_clave=True,
+            cabecera_clave="X-API-Key",
+        )
+
+    monkeypatch.setattr(a2a, "descubrir", descubrir)
+    cliente.post("/api/agentes", json={"url": "https://ale.example.com"}, headers=CABECERAS)
+
+    remoto = cliente.get("/api/agentes").json()["remotos"][0]
+    assert remoto["estado"] == "requiere clave"
+    assert "X-API-Key" in remoto["detalle"]
+
+    cliente.post(
+        "/api/agentes",
+        json={"url": "https://ale.example.com", "clave": "k"},
+        headers=CABECERAS,
+    )
+    assert cliente.get("/api/agentes").json()["remotos"][0]["estado"] == "disponible"
 
 
 def test_quitar_agente(cliente: TestClient, sin_red):

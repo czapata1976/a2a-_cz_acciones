@@ -30,6 +30,7 @@ ESQUEMA_SQLITE = """
 CREATE TABLE IF NOT EXISTS equipo (
     url TEXT PRIMARY KEY,
     nombre TEXT NOT NULL DEFAULT '',
+    clave TEXT NOT NULL DEFAULT '',
     agregado_en TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS charlas (
@@ -51,6 +52,7 @@ ESQUEMA_POSTGRES = """
 CREATE TABLE IF NOT EXISTS czz_equipo (
     url TEXT PRIMARY KEY,
     nombre TEXT NOT NULL DEFAULT '',
+    clave TEXT NOT NULL DEFAULT '',
     agregado_en TEXT NOT NULL
 );
 CREATE TABLE IF NOT EXISTS czz_charlas (
@@ -109,6 +111,7 @@ class Almacen:
         with self._candado:
             self._conexion.executescript(ESQUEMA_SQLITE)
             self._conexion.commit()
+        self._migrar_equipo()
 
     def _abrir_postgres(self) -> None:
         try:
@@ -129,6 +132,22 @@ class Almacen:
         )
         with self._pool.connection() as conexion:
             conexion.execute(ESQUEMA_POSTGRES)
+        self._migrar_equipo()
+
+    def _migrar_equipo(self) -> None:
+        """Añade `clave` a un equipo creado cuando ningún agente pedía credencial."""
+        if self._pool is not None:
+            with self._pool.connection() as conexion:
+                conexion.execute(
+                    self._sql("ALTER TABLE {equipo} ADD COLUMN IF NOT EXISTS clave TEXT NOT NULL DEFAULT ''")
+                )
+            return
+        with self._candado:
+            columnas = {fila["name"] for fila in self._conexion.execute("PRAGMA table_info(equipo)")}
+            if "clave" in columnas:
+                return
+            self._conexion.execute("ALTER TABLE equipo ADD COLUMN clave TEXT NOT NULL DEFAULT ''")
+            self._conexion.commit()
 
     def cerrar(self) -> None:
         with self._candado:
@@ -177,15 +196,26 @@ class Almacen:
 
     # --- equipo -----------------------------------------------------------
     def agentes(self) -> list[dict]:
-        filas = self._leer("SELECT url, nombre, agregado_en FROM {equipo} ORDER BY agregado_en, url")
+        filas = self._leer(
+            "SELECT url, nombre, clave, agregado_en FROM {equipo} ORDER BY agregado_en, url"
+        )
         return [dict(fila) for fila in filas]
 
-    def agregar_agente(self, url: str, nombre: str = "") -> None:
-        self._escribir([(
-            "INSERT INTO {equipo} (url, nombre, agregado_en) VALUES (?, ?, ?) "
-            "ON CONFLICT(url) DO UPDATE SET nombre = excluded.nombre",
-            (url, nombre, _ahora()),
-        )])
+    def agregar_agente(self, url: str, nombre: str = "", clave: str | None = None) -> None:
+        """Agrega el agente o actualiza su nombre; la clave solo cambia si se indica."""
+        if clave is None:
+            consulta = (
+                "INSERT INTO {equipo} (url, nombre, agregado_en) VALUES (?, ?, ?) "
+                "ON CONFLICT(url) DO UPDATE SET nombre = excluded.nombre"
+            )
+            parametros: tuple = (url, nombre, _ahora())
+        else:
+            consulta = (
+                "INSERT INTO {equipo} (url, nombre, clave, agregado_en) VALUES (?, ?, ?, ?) "
+                "ON CONFLICT(url) DO UPDATE SET nombre = excluded.nombre, clave = excluded.clave"
+            )
+            parametros = (url, nombre, clave, _ahora())
+        self._escribir([(consulta, parametros)])
 
     def quitar_agente(self, url: str) -> bool:
         return self._escribir([("DELETE FROM {equipo} WHERE url = ?", (url,))]) > 0

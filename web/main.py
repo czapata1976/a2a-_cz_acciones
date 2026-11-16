@@ -49,6 +49,8 @@ class Credenciales(BaseModel):
 
 class NuevoAgente(BaseModel):
     url: str = Field(min_length=8, max_length=500)
+    clave: str | None = Field(default=None, max_length=500)
+    """Credencial del agente remoto; sin el campo no se toca la que ya estuviera guardada."""
 
 
 class NuevoMensaje(BaseModel):
@@ -143,16 +145,30 @@ def crear_app(settings: Settings | None = None, almacen: Almacen | None = None) 
 
     # --- equipo de agentes ------------------------------------------------
     async def _estado_remoto(agente_guardado: dict) -> dict:
+        clave = (agente_guardado.get("clave") or "").strip()
         try:
-            agente = await a2a.descubrir(agente_guardado["url"], timeout=min(10.0, settings.a2a_timeout))
+            agente = await a2a.descubrir(
+                agente_guardado["url"], timeout=min(10.0, settings.a2a_timeout), clave=clave
+            )
         except Exception as error:  # noqa: BLE001 - el panel muestra el estado, no lo propaga
-            return {**agente_guardado, "estado": "no disponible", "detalle": str(error)}
-        return {
+            return {
+                "url": agente_guardado["url"],
+                "nombre": agente_guardado["nombre"],
+                "estado": "no disponible",
+                "detalle": str(error),
+            }
+        base = {
             "url": agente_guardado["url"],
             "nombre": agente.nombre or agente_guardado["nombre"],
-            "estado": "disponible",
-            "detalle": agente.url_a2a,
+            "requiere_clave": agente.requiere_clave,
         }
+        if agente.requiere_clave and not clave:
+            return {
+                **base,
+                "estado": "requiere clave",
+                "detalle": f"su ficha pide la clave en {agente.cabecera_clave or 'una credencial'}",
+            }
+        return {**base, "estado": "disponible", "detalle": agente.url_a2a}
 
     @app.get("/api/agentes")
     async def agentes(usuario: str = Depends(usuario_actual)) -> dict:
@@ -199,9 +215,20 @@ def crear_app(settings: Settings | None = None, almacen: Almacen | None = None) 
         except a2a.ErrorAgenteRemoto as error:
             raise HTTPException(status_code=400, detail=str(error)) from error
 
-        almacen.agregar_agente(url, agente.nombre)
+        clave = datos.clave.strip() if datos.clave is not None else None
+        almacen.agregar_agente(url, agente.nombre, clave)
         logger.info("Agente agregado al equipo: %s (%s)", agente.nombre, url)
-        return {"url": url, "nombre": agente.nombre, "estado": "disponible", "detalle": agente.url_a2a}
+        estado, detalle = "disponible", agente.url_a2a
+        if agente.requiere_clave and not clave:
+            estado = "requiere clave"
+            detalle = f"su ficha pide la clave en {agente.cabecera_clave or 'una credencial'}"
+        return {
+            "url": url,
+            "nombre": agente.nombre,
+            "estado": estado,
+            "detalle": detalle,
+            "requiere_clave": agente.requiere_clave,
+        }
 
     @app.delete("/api/agentes")
     async def quitar_agente(
@@ -255,9 +282,9 @@ def crear_app(settings: Settings | None = None, almacen: Almacen | None = None) 
         if not texto:
             raise HTTPException(status_code=400, detail="El mensaje está vacío.")
 
-        urls = [agente["url"] for agente in almacen.agentes()][:MAX_AGENTES]
+        guardados = almacen.agentes()[:MAX_AGENTES]
         almacen.agregar_mensaje(charla_id, "user", texto)
-        resultado = await orquestador.ejecutar(settings, texto, charla_id, urls)
+        resultado = await orquestador.ejecutar(settings, texto, charla_id, guardados)
         almacen.agregar_mensaje(charla_id, "assistant", resultado["respuesta"], resultado["flujo"])
 
         if not resultado["respuesta"]:

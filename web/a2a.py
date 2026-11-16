@@ -17,6 +17,9 @@ from canales.agente import texto_de
 
 RUTA_TARJETA = "/.well-known/agent-card.json"
 
+CABECERA_CLAVE = "X-Agente-Clave"
+"""Cabecera con la que este proyecto pide la clave cuando la ficha no dice otra cosa."""
+
 
 class ErrorAgenteRemoto(RuntimeError):
     """No se pudo descubrir o consultar el agente indicado."""
@@ -33,6 +36,14 @@ class Agente:
     descripcion: str = ""
     clave: str = ""
     habilidades: tuple[str, ...] = ()
+    requiere_clave: bool = False
+    """La ficha declara que `message/send` exige credencial."""
+    cabecera_clave: str = CABECERA_CLAVE
+    """Cabecera donde la ficha pide la clave (``Authorization`` si es Bearer)."""
+    prefijo_clave: str = ""
+    """Texto que precede a la clave, por ejemplo ``Bearer ``."""
+    version_protocolo: str = ""
+    """`protocolVersion` de la interfaz declarada; se envía como ``A2A-Version``."""
 
 
 def normalizar_url(url: str) -> str:
@@ -61,15 +72,84 @@ def ruta_de_usuario(url: str) -> str:
 
 
 def _url_reenviada(base: str, url_tarjeta: str) -> str:
-    """Usa el host y el esquema con que entró el usuario, y la ruta que anuncia la tarjeta.
+    """Usa el host con que entró el usuario y la ruta que anuncia la tarjeta.
 
     Hay dos casos reales: un agente publicado por túnel anuncia su `127.0.0.1` (host equivocado) y un
     agente en Cloud Run anuncia `http://` aunque se le hable por HTTPS (esquema equivocado). En ambos
-    manda la URL que escribió el usuario; la tarjeta solo aporta la ruta del endpoint.
+    manda la URL que escribió el usuario. El esquema nunca baja a `http` si alguna de las dos dice
+    `https`: la clave viajaría sin cifrar.
     """
     anfitrion = urlsplit(base)
     anunciada = urlsplit(url_tarjeta)
-    return urlunsplit((anfitrion.scheme, anfitrion.netloc, anunciada.path or "/", anunciada.query, ""))
+    esquema = "https" if "https" in {anfitrion.scheme, anunciada.scheme} else anfitrion.scheme
+    return urlunsplit((esquema, anfitrion.netloc, anunciada.path or "/", anunciada.query, ""))
+
+
+def _detalle_esquema(esquema: object) -> dict:
+    """Aplana las dos formas en que una ficha A2A anida un esquema de seguridad."""
+    if not isinstance(esquema, dict):
+        return {}
+    for anidado in ("apiKeySecurityScheme", "httpSecurityScheme", "bearerSecurityScheme"):
+        if isinstance(esquema.get(anidado), dict):
+            return esquema[anidado]
+    return esquema
+
+
+def _nombres_requeridos(datos: dict) -> list[str]:
+    """Nombres de los esquemas que la ficha exige (`securityRequirements`/`security`)."""
+    nombres: list[str] = []
+    requisitos: list = []
+    for fuente in ("securityRequirements", "security_requirements", "security"):
+        valor = datos.get(fuente)
+        if isinstance(valor, list):
+            requisitos.extend(valor)
+    for requisito in requisitos:
+        if not isinstance(requisito, dict):
+            continue
+        esquemas = requisito.get("schemes") or requisito
+        if isinstance(esquemas, dict):
+            nombres.extend(str(nombre) for nombre in esquemas)
+        elif isinstance(esquemas, list):
+            nombres.extend(str(nombre) for nombre in esquemas if isinstance(nombre, str))
+    return nombres
+
+
+def _cabecera_de(detalle: dict) -> tuple[str, str]:
+    """(cabecera, prefijo) del esquema, o `("", "")` si no se autentica por cabecera."""
+    tipo = str(detalle.get("type") or "").lower()
+    mecanismo = str(detalle.get("scheme") or "").lower()
+    if tipo == "http" or mecanismo in {"bearer", "basic"}:
+        return ("Authorization", "Bearer ") if mecanismo == "bearer" else ("", "")
+    if tipo == "apikey" or detalle.get("name"):
+        if str(detalle.get("location") or "header").lower() != "header":
+            return "", ""
+        return str(detalle.get("name") or CABECERA_CLAVE), ""
+    return "", ""
+
+
+def _esquema_de_clave(datos: dict) -> tuple[bool, str, str]:
+    """(¿exige clave?, cabecera, prefijo) según cómo la declare la ficha.
+
+    Cubre el A2A actual (`securitySchemes` con `securityRequirements`, como el agente de
+    auditoría que usa `X-API-Key`), el formato propio anterior (`authentication.header`, como
+    `agente_cz_A2A`) y las fichas que no declaran nada.
+    """
+    declarados = datos.get("securitySchemes") or datos.get("security_schemes") or {}
+    if not isinstance(declarados, dict):
+        declarados = {}
+    requeridos = [nombre for nombre in _nombres_requeridos(datos) if nombre in declarados]
+    for nombre in requeridos or list(declarados):
+        detalle = _detalle_esquema(declarados.get(nombre))
+        cabecera, prefijo = _cabecera_de(detalle)
+        if cabecera:
+            return True, cabecera, prefijo
+        if detalle:  # exige credencial, pero no por cabecera (cookie, OAuth…)
+            return True, "", ""
+
+    heredado = datos.get("authentication")
+    if isinstance(heredado, dict) and heredado.get("header"):
+        return True, str(heredado["header"]), ""
+    return False, CABECERA_CLAVE, ""
 
 
 def _habilidades_de_tarjeta(datos: dict) -> tuple[str, ...]:
@@ -94,15 +174,20 @@ def _agente_de_tarjeta(datos: object, base: str, assistant_id: str | None, clave
         raise ErrorAgenteRemoto("La tarjeta A2A no es un objeto JSON.")
 
     url = str(datos.get("url") or "")
+    version_protocolo = ""
     if not url:
         interfaces = datos.get("supportedInterfaces") or datos.get("supported_interfaces") or []
         for interfaz in interfaces:
             if isinstance(interfaz, dict) and interfaz.get("url"):
                 url = str(interfaz["url"])
+                version_protocolo = str(
+                    interfaz.get("protocolVersion") or interfaz.get("protocol_version") or ""
+                )
                 break
     if not url:
         raise ErrorAgenteRemoto("La tarjeta A2A no anuncia el endpoint de mensajes.")
 
+    requiere_clave, cabecera_clave, prefijo_clave = _esquema_de_clave(datos)
     return Agente(
         base=base,
         nombre=str(datos.get("name") or base),
@@ -111,6 +196,10 @@ def _agente_de_tarjeta(datos: object, base: str, assistant_id: str | None, clave
         descripcion=str(datos.get("description") or ""),
         clave=clave,
         habilidades=_habilidades_de_tarjeta(datos),
+        requiere_clave=requiere_clave,
+        cabecera_clave=cabecera_clave,
+        prefijo_clave=prefijo_clave,
+        version_protocolo=version_protocolo,
     )
 
 
@@ -172,7 +261,38 @@ def _con_ruta(agente: Agente, raiz: str, ruta_usuario: str) -> Agente:
         descripcion=agente.descripcion,
         clave=agente.clave,
         habilidades=agente.habilidades,
+        requiere_clave=agente.requiere_clave,
+        cabecera_clave=agente.cabecera_clave,
+        prefijo_clave=agente.prefijo_clave,
+        version_protocolo=agente.version_protocolo,
     )
+
+
+def cabeceras_de(agente: Agente) -> dict[str, str]:
+    """Cabeceras de `message/send`: la clave viaja donde la ficha dice que va."""
+    cabeceras = {"Accept": "application/json"}
+    if agente.version_protocolo:
+        cabeceras["A2A-Version"] = agente.version_protocolo
+    if agente.clave and agente.cabecera_clave:
+        cabeceras[agente.cabecera_clave] = f"{agente.prefijo_clave}{agente.clave}"
+    return cabeceras
+
+
+def _destinos(agente: Agente) -> list[str]:
+    """Endpoints a probar: el anunciado y, si el esquema difiere, el que escribió el usuario.
+
+    La ficha aporta la ruta y el usuario el host. Se prefiere `https` para que la clave no viaje
+    sin cifrar; si ese host solo escucha en `http` (un servidor de desarrollo, por ejemplo), el
+    segundo intento conserva la URL escrita.
+    """
+    destinos = [agente.url_a2a]
+    escrito = urlsplit(agente.base)
+    anunciado = urlsplit(agente.url_a2a)
+    if escrito.scheme != anunciado.scheme:
+        destinos.append(
+            urlunsplit((escrito.scheme, anunciado.netloc, anunciado.path, anunciado.query, ""))
+        )
+    return destinos
 
 
 async def enviar(agente: Agente, texto: str, context_id: str, timeout: float = 180.0) -> str:
@@ -188,19 +308,34 @@ async def enviar(agente: Agente, texto: str, context_id: str, timeout: float = 1
             "parts": [{"kind": "text", "text": texto}],
         }},
     }
-    cabeceras = {"Accept": "application/json"}
-    if agente.clave:
-        cabeceras["X-Agente-Clave"] = agente.clave
+    destinos = _destinos(agente)
+    datos = None
     try:
         async with httpx.AsyncClient(timeout=timeout, trust_env=False) as cliente:
-            respuesta = await cliente.post(agente.url_a2a, json=cuerpo, headers=cabeceras)
-            respuesta.raise_for_status()
-            datos = respuesta.json()
+            for destino in destinos:
+                try:
+                    respuesta = await cliente.post(
+                        destino, json=cuerpo, headers=cabeceras_de(agente)
+                    )
+                    respuesta.raise_for_status()
+                    datos = respuesta.json()
+                    break
+                except httpx.ConnectError:
+                    if destino == destinos[-1]:
+                        raise
+                    continue
     except httpx.TimeoutException as error:
         raise ErrorAgenteRemoto(f"{agente.nombre} agotó el tiempo de respuesta.") from error
     except httpx.HTTPStatusError as error:
+        codigo = error.response.status_code
+        if codigo in {401, 403}:
+            donde = agente.cabecera_clave or "la cabecera que declara su ficha"
+            raise ErrorAgenteRemoto(
+                f"{agente.nombre} respondió HTTP {codigo}: revisa la clave del agente "
+                f"(va en {donde})."
+            ) from error
         raise ErrorAgenteRemoto(
-            f"{agente.nombre} respondió HTTP {error.response.status_code}."
+            f"{agente.nombre} respondió HTTP {codigo}."
         ) from error
     except httpx.HTTPError as error:
         raise ErrorAgenteRemoto(f"No pude comunicarme con {agente.nombre}.") from error
@@ -226,4 +361,4 @@ async def enviar(agente: Agente, texto: str, context_id: str, timeout: float = 1
     return texto_respuesta
 
 
-__all__ = ["Agente", "ErrorAgenteRemoto", "descubrir", "enviar", "normalizar_url"]
+__all__ = ["Agente", "ErrorAgenteRemoto", "cabeceras_de", "descubrir", "enviar", "normalizar_url"]

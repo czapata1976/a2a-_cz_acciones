@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Consola A2A · agente_cz_A2A</title>
-  <link rel="stylesheet" href="/static/estilos.css?v=6">
+  <link rel="stylesheet" href="/static/estilos.css?v=7">
 </head>
 <body>
   <section id="login" class="login" hidden>
@@ -46,10 +46,11 @@
         <ul id="lista-agentes" class="lista"></ul>
         <form id="form-agente" class="fila-agregar">
           <input id="url-agente" name="url" placeholder="https://otro-agente/…" inputmode="url" autocomplete="off">
+          <input id="clave-agente" name="clave" type="password" placeholder="Clave del agente (si su ficha la pide)" autocomplete="off">
           <button type="submit" title="Agregar agente" aria-label="Agregar agente">+</button>
         </form>
         <p id="agente-error" class="error compacto-texto" role="alert"></p>
-        <p class="sutil compacto-texto">Hasta 4 agentes públicos. El agente local sintetiza el aporte de todos.</p>
+        <p class="sutil compacto-texto">Hasta 4 agentes públicos. Si la ficha pide una clave (por ejemplo <code>X-API-Key</code>), pégala aquí y quedará guardada con el agente. El agente local sintetiza el aporte de todos.</p>
       </section>
     </aside>
 
@@ -90,6 +91,6 @@
     </aside>
   </div>
 
-  <script src="/static/app.js?v=7"></script>
+  <script src="/static/app.js?v=8"></script>
 </body>
 </html>

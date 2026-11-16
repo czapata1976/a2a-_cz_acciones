@@ -121,27 +121,33 @@ async def ejecutar(
     settings: Settings,
     texto: str,
     charla_id: str,
-    urls_remotas: list[str],
+    guardados: list[dict],
 ) -> dict:
-    """Ejecuta un turno completo y devuelve la respuesta con su traza A2A."""
+    """Ejecuta un turno completo y devuelve la respuesta con su traza A2A.
+
+    `guardados` son los agentes del equipo tal como están en la base: su URL pública y, si su
+    ficha la exige, la clave con la que se les puede consultar.
+    """
     flujo: list[dict] = []
-    objetivos: list[tuple[str, str]] = [("local", settings.a2a_url)]
-    objetivos += [("remoto", url) for url in urls_remotas]
+    objetivos: list[tuple[str, str, str]] = [("local", settings.a2a_url, settings.a2a_clave)]
+    objetivos += [
+        ("remoto", item["url"], (item.get("clave") or "").strip()) for item in guardados
+    ]
 
     descubrimientos = await asyncio.gather(
         *(
             _medir(a2a.descubrir(
                 base,
                 timeout=min(20.0, settings.a2a_timeout),
-                clave=settings.a2a_clave if rol == "local" else "",
+                clave=clave,
             ))
-            for rol, base in objetivos
+            for rol, base, clave in objetivos
         )
     )
 
     local: Agente | None = None
     remotos: list[Agente] = []
-    for (rol, base), (agente, segundos, error) in zip(objetivos, descubrimientos):
+    for (rol, base, _), (agente, segundos, error) in zip(objetivos, descubrimientos):
         if error is not None or agente is None:
             flujo.append(_evento(
                 "descubrimiento", agente=base, url=base, rol=rol, estado="error",

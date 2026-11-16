@@ -168,16 +168,28 @@ a.enlace-boton:hover { border-color: var(--acento); color: var(--texto); }
 .agente .faro { width: 8px; height: 8px; border-radius: 50%; background: var(--suave); }
 .agente.disponible .faro { background: var(--exito); }
 .agente.no-disponible .faro { background: var(--error); }
+.agente.requiere-clave .faro { background: var(--aviso); }
 .agente .datos { display: grid; min-width: 0; }
 .agente .nombre { font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agente .url { font: 10.5px/1.3 var(--mono); color: var(--suave); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .agente .rol { font: 10px/1 var(--mono); color: var(--acento); }
+.agente .acciones { display: flex; align-items: center; gap: 2px; }
 .agente button.quitar { padding: 2px 7px; font-size: 12px; background: transparent; border-color: transparent; color: var(--suave); }
 .agente button.quitar:hover { color: var(--error); border-color: var(--error); }
+.agente button.clave {
+  padding: 2px 7px;
+  font: 10.5px/1 var(--mono);
+  background: transparent;
+  border-color: transparent;
+  color: var(--acento);
+}
+.agente button.clave:hover { border-color: var(--acento); }
 
 .fila-agregar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; }
 .fila-agregar input { padding: 8px 10px; font-size: 12.5px; }
-.fila-agregar button { padding: 0 12px; }
+.fila-agregar #url-agente { grid-column: 1; grid-row: 1; }
+.fila-agregar #clave-agente { grid-column: 1; grid-row: 2; }
+.fila-agregar button { grid-column: 2; grid-row: 1 / span 2; padding: 0 12px; }
 
 /* ---------- chat ---------- */
 .barra {

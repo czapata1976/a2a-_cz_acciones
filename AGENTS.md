@@ -87,7 +87,10 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 12. Las credenciales de canales viven en `.env`; `.env.example` solo lleva las claves vacías.
 13. El chat web también es **cliente A2A**: descubre por tarjeta, reutiliza `contextId` por conversación
     y nunca importa `src/agente_acciones`. Su equipo admite **hasta 4 agentes remotos**; el local sintetiza
-    y recibe en cada turno la ficha del equipo (`<equipo_a2a>`) para reconocer a cada colega.
+    y recibe en cada turno la ficha del equipo (`<equipo_a2a>`) para reconocer a cada colega. Cada remoto
+    guarda su clave junto a su URL (en la fila del equipo, fuera de la API) y se envía en la cabecera que
+    declare su ficha (`securitySchemes`: `X-API-Key`, `X-Agente-Clave` o `Authorization: Bearer`), más
+    `A2A-Version` cuando la tarjeta publica `supportedInterfaces`.
 15. La ficha y `/salud` del agente son públicas; `message/send` exige `AGENTE_CLAVE`. Sin clave configurada
     el agente falla cerrado (rechaza todo). Lo mismo en el coordinador con `/chat`, `/telegram` y
     `/whatsapp/mensaje`.

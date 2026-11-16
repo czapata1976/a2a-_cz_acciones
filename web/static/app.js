@@ -45,6 +45,7 @@ const estado = {
   charlaId: null,
   charlas: [],
   equipo: { local: null, remotos: [], maximo: 4 },
+  editandoClave: '',
   enviando: false,
 };
 
@@ -335,7 +336,8 @@ function alternarEnvio(activo) {
 function itemAgente(agente, quitable) {
   const item = document.createElement('li');
   const caja = document.createElement('div');
-  caja.className = `agente ${agente.estado === 'disponible' ? 'disponible' : 'no-disponible'}`;
+  const clases = { disponible: 'disponible', 'requiere clave': 'requiere-clave' };
+  caja.className = `agente ${clases[agente.estado] || 'no-disponible'}`;
 
   const faro = document.createElement('span');
   faro.className = 'faro';
@@ -364,6 +366,20 @@ function itemAgente(agente, quitable) {
   caja.append(faro, datos);
 
   if (quitable) {
+    const acciones = document.createElement('div');
+    acciones.className = 'acciones';
+
+    if (agente.requiere_clave || agente.estado === 'requiere clave') {
+      const clave = document.createElement('button');
+      clave.type = 'button';
+      clave.className = 'clave';
+      clave.textContent = 'clave';
+      clave.title = 'Escribir o cambiar la clave que pide este agente';
+      clave.setAttribute('aria-label', `Cambiar la clave de ${agente.nombre || agente.url}`);
+      clave.addEventListener('click', () => editarClave(agente.url));
+      acciones.appendChild(clave);
+    }
+
     const quitar = document.createElement('button');
     quitar.type = 'button';
     quitar.className = 'quitar';
@@ -371,7 +387,9 @@ function itemAgente(agente, quitable) {
     quitar.title = 'Quitar del equipo';
     quitar.setAttribute('aria-label', `Quitar ${agente.nombre || agente.url}`);
     quitar.addEventListener('click', () => quitarAgente(agente.url));
-    caja.appendChild(quitar);
+    acciones.appendChild(quitar);
+
+    caja.appendChild(acciones);
   }
 
   item.appendChild(caja);
@@ -386,8 +404,10 @@ function renderEquipo() {
   for (const remoto of remotos) lista.appendChild(itemAgente(remoto, true));
 
   $('#contador-equipo').textContent = `${remotos.length}/${maximo}`;
-  const lleno = remotos.length >= maximo;
+  // Con el equipo lleno el formulario se bloquea, salvo que se esté actualizando una clave.
+  const lleno = remotos.length >= maximo && !estado.editandoClave;
   $('#url-agente').disabled = lleno;
+  $('#clave-agente').disabled = lleno;
   $('#form-agente').querySelector('button').disabled = lleno;
   $('#url-agente').placeholder = lleno ? 'Equipo completo' : 'https://otro-agente/…';
 }
@@ -398,17 +418,31 @@ async function cargarEquipo() {
   renderEquipo();
 }
 
+/* Una clave nueva se envía con la URL del agente: la API la guarda en su ficha del equipo. */
+function editarClave(url) {
+  estado.editandoClave = url;
+  $('#url-agente').value = url;
+  $('#clave-agente').value = '';
+  $('#agente-error').textContent = '';
+  renderEquipo();
+  $('#clave-agente').focus();
+}
+
 async function agregarAgente(evento) {
   evento.preventDefault();
   const entrada = $('#url-agente');
+  const clave = $('#clave-agente');
   const url = entrada.value.trim();
   if (!url) return;
   $('#agente-error').textContent = '';
   const boton = $('#form-agente').querySelector('button');
   boton.disabled = true;
   try {
-    await pedir('/api/agentes', { metodo: 'POST', cuerpo: { url } });
+    const cuerpo = clave.value.trim() ? { url, clave: clave.value.trim() } : { url };
+    await pedir('/api/agentes', { metodo: 'POST', cuerpo });
     entrada.value = '';
+    clave.value = '';
+    estado.editandoClave = '';
     await cargarEquipo();
   } catch (error) {
     $('#agente-error').textContent = error.message;
