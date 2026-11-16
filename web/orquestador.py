@@ -36,6 +36,30 @@ def declaro_fuera_de_alcance(texto: str) -> bool:
     return any(marca in plano for marca in MARCAS_FUERA_DE_ALCANCE)
 
 
+ATRIBUCION_PREVIA = 240
+"""Cuántos caracteres del inicio se miran para ver si ya nombra al colega que respondió."""
+
+
+def con_atribucion(sintesis: str, respuestas: list[tuple[Agente, str]]) -> str:
+    """La respuesta del turno empieza diciendo de quién es la información.
+
+    El agente que sintetiza redacta libremente y a veces arranca con el veredicto del colega
+    («**No cumple.**»), que no es suyo: sin atribución el usuario lee una conclusión sin saber quién
+    la firma y parece que el asesor de acciones la está evaluando él. Si el inicio ya nombra a alguno
+    de los colegas que respondieron, el texto se deja intacto (no se reescribe).
+    """
+    if not sintesis or not respuestas:
+        return sintesis
+    nombres = [agente.nombre for agente, _ in respuestas if agente.nombre]
+    if not nombres:
+        return sintesis
+    inicio = " ".join(sintesis[:ATRIBUCION_PREVIA].lower().split())
+    if any(nombre.strip().lower() in inicio for nombre in nombres):
+        return sintesis
+    quien = nombres[0] if len(nombres) == 1 else ", ".join(nombres[:-1]) + " y " + nombres[-1]
+    return f"**Respondió**: {quien}\n\n{sintesis}"
+
+
 def _evento(tipo: str,
     *,
     agente: str,
@@ -136,7 +160,12 @@ def mensaje_de_sintesis(
         "tributario), no lo inventes ni prometas su revisión: di que el equipo no tiene ese agente.",
         "- Si nombra a alguien que no está en `<equipo_a2a>`, di que ese agente no está en el equipo.",
     ])
-    bloques.append("Cómo responder:\n" + "\n".join(instrucciones))
+    bloques.append(
+        "Cómo responder:\n"
+        "- Empieza nombrando al agente del equipo que responde o aporta la información (por ejemplo "
+        "«Respondió: agente-ale-ubi» o «Según agente-ale-ubi»). Nunca abras con un veredicto suyo "
+        "(«No cumple») como si fuera tuyo.\n" + "\n".join(instrucciones)
+    )
     return "\n".join(bloques)
 
 
@@ -286,9 +315,10 @@ async def ejecutar(
         ))
         return {"respuesta": aportes, "flujo": flujo, "error": None}
 
+    respuesta_final = con_atribucion(sintesis, respuestas)
     flujo.append(_evento(
         "sintesis", agente=f"coordinador · {agente_texto}", url=settings.coordinador_url,
         rol="local", estado="ok", ms=segundos,
         detalle=f"{len(respuestas)} aporte(s) integrados · {len(sintesis)} caracteres",
     ))
-    return {"respuesta": sintesis, "flujo": flujo, "error": None}
+    return {"respuesta": respuesta_final, "flujo": flujo, "error": None}

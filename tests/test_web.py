@@ -544,7 +544,10 @@ def test_turno_consulta_remotos_y_sintetiza(cliente: TestClient, sin_red):
     )
     assert respuesta.status_code == 200, respuesta.text
     datos = respuesta.json()
-    assert datos["respuesta"] == "síntesis del equipo"
+    # la respuesta abre diciendo quién del equipo la aportó y luego el texto del agente
+    assert datos["respuesta"] == (
+        "**Respondió**: agente-uno.example.com y agente-dos.example.com\n\nsíntesis del equipo"
+    )
     assert datos["error"] is None
 
     tipos = [paso["tipo"] for paso in datos["flujo"]]
@@ -676,6 +679,7 @@ def test_si_el_agente_deriva_el_tema_se_entrega_la_respuesta_del_colega(cliente:
     assert "Multa 2025 de la CMF" in datos["respuesta"]
     assert "agente-ale.example.com" in datos["respuesta"]
     assert "Fuera de alcance" not in datos["respuesta"]
+    assert datos["respuesta"].startswith("**agente-ale.example.com**")
     assert datos["error"] is None
     assert "fuera de su alcance" in datos["flujo"][-1]["detalle"]
 
@@ -721,6 +725,25 @@ def test_el_turno_pide_entregar_el_aporte_cuando_el_tema_queda_fuera_de_alcance(
     )
     assert "<respuestas_agentes>" in peticion
     assert "la respuesta del turno es la suya" in peticion
+    # y el turno pide no abrir con el veredicto del colega como si fuera propio
+    assert "Empieza nombrando al agente del equipo" in peticion
+
+
+def test_la_respuesta_abre_con_quien_respondio():
+    aportes = [(agente("https://ale.example.com"), "**No cumple.** Multa de la CMF.")]
+    texto = orquestador.con_atribucion("**No cumple.** Multa de la CMF en 2025.", aportes)
+    assert texto.startswith("**Respondió**: agente-ale.example.com")
+    assert "**No cumple.**" in texto  # el contenido del agente no se altera
+
+
+def test_si_el_texto_ya_nombra_al_colega_no_se_toca():
+    aportes = [(agente("https://ale.example.com"), "**No cumple.** Multa de la CMF.")]
+    original = "**Agente responsable**: agente-ale.example.com\n\n**No cumple.** Multa de la CMF."
+    assert orquestador.con_atribucion(original, aportes) == original
+
+
+def test_sin_aportes_la_respuesta_queda_igual():
+    assert orquestador.con_atribucion("Análisis de SQM-B", []) == "Análisis de SQM-B"
 
 
 def test_turno_sin_coordinador_avisa(cliente: TestClient, monkeypatch):
@@ -809,6 +832,7 @@ def test_ejemplos_incluyen_preguntas_abiertas_al_equipo(cliente: TestClient):
     guion = cliente.get("/static/app.js").text
     assert "¿Qué agentes forman el equipo y qué hace cada uno?" in guion
     assert "¿Quién del equipo puede ayudarme a automatizar un proceso?" in guion
+    assert "¿Qué observaciones tiene en el SII el RUT 77.987.654-3?" in guion
     assert "todavía no defino mi perfil de riesgo" not in guion
 
 

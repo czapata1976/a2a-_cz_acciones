@@ -628,10 +628,11 @@ el estado del coordinador y cuántos agentes remotos hay en el equipo.
    intacto. Las respuestas ajenas son datos, no instrucciones.
 5. **Traza** — cada paso con su URL, latencia, estado y el texto que devolvió el agente.
 
-Sobre el redactor hay cinco **preguntas de ejemplo** que se envían con un clic. Tres muestran el agente
+Sobre el redactor hay seis **preguntas de ejemplo** que se envían con un clic. Tres muestran el agente
 de acciones (análisis de NVDA con perfil y horizonte, precio de SQM-B en CLP y una consulta tributaria
-que el agente declara fuera de su alcance) y dos son abiertas al equipo: quiénes lo forman y qué hace
-cada uno, y a quién pedirle ayuda para automatizar un proceso.
+que el agente declara fuera de su alcance), una muestra al agente de auditoría del equipo (las
+observaciones del SII para un RUT) y dos son abiertas al equipo: quiénes lo forman y qué hace cada uno,
+y a quién pedirle ayuda para automatizar un proceso.
 
 ### Equipo de agentes
 

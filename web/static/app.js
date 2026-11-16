@@ -31,10 +31,12 @@ function borrarToken() {
   }
 }
 
-/* Cada ejemplo muestra una capacidad distinta: tres del agente de acciones y dos abiertas al equipo. */
+/* Cada ejemplo muestra una capacidad distinta: dos del agente de acciones, una del agente de
+   auditoría del equipo y dos abiertas al equipo. */
 const EJEMPLOS = [
   'Analiza NVDA en US para un perfil moderado a 12 meses.',
   '¿Cuánto vale SQM-B en Chile?',
+  '¿Qué observaciones tiene en el SII el RUT 77.987.654-3?',
   '¿Qué agentes forman el equipo y qué hace cada uno?',
   '¿Quién del equipo puede ayudarme a automatizar un proceso?',
   '¿Cuánto impuesto pago por las ganancias de NVDA en Chile?',

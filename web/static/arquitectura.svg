@@ -1,135 +1,115 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1160 720" width="100%" preserveAspectRatio="xMidYMid meet" font-family="Segoe UI, Arial, sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 700" width="100%" preserveAspectRatio="xMidYMid meet" font-family="Segoe UI, Arial, sans-serif">
   <defs>
     <marker id="flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#94a3b8"/>
     </marker>
+    <marker id="flechaClave" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#059669"/>
+    </marker>
   </defs>
 
-  <rect x="0" y="0" width="1160" height="720" fill="#ffffff"/>
+  <rect x="0" y="0" width="1200" height="700" fill="#ffffff"/>
 
-  <text x="40" y="46" font-size="26" font-weight="700" fill="#0f172a">Arquitectura A2A · agente_cz_A2A</text>
-  <text x="40" y="72" font-size="15" fill="#475569">Canales de consulta, protocolo, equipo de agentes y persistencia</text>
+  <text x="40" y="44" font-size="26" font-weight="700" fill="#0f172a">Arquitectura A2A · agente_cz_A2A</text>
+  <text x="40" y="72" font-size="15" fill="#475569">Coordinador y agente en servicios separados: los canales entran por el coordinador, el único que habla con el agente</text>
 
-  <!-- Canales -->
-  <text x="40" y="112" font-size="13" font-weight="700" fill="#2563eb">1 · CANALES DE CONSULTA</text>
+  <!-- 1 · Canales -->
+  <text x="40" y="106" font-size="13" font-weight="700" fill="#2563eb">1 · CANALES (clientes del coordinador)</text>
 
-  <rect x="40" y="126" width="300" height="66" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
-  <text x="58" y="152" font-size="15" font-weight="700" fill="#1e3a8a">Chat web</text>
-  <text x="58" y="172" font-size="13" fill="#334155">HTTPS + login · hasta 4 agentes remotos</text>
-  <text x="58" y="187" font-size="12" fill="#64748b">cierra el turno en el coordinador</text>
+  <rect x="40" y="118" width="300" height="64" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="58" y="142" font-size="15" font-weight="700" fill="#1e3a8a">Chat web</text>
+  <text x="58" y="161" font-size="12.5" fill="#334155">app Heroku ROL=web · login propio</text>
+  <text x="58" y="175" font-size="11.5" fill="#64748b">equipo de hasta 4 agentes remotos</text>
 
-  <rect x="40" y="204" width="300" height="66" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
-  <text x="58" y="230" font-size="15" font-weight="700" fill="#1e3a8a">Coordinador (supervisor)</text>
-  <text x="58" y="250" font-size="13" fill="#334155">POST /chat con X-Coordinador-Clave</text>
-  <text x="58" y="265" font-size="12" fill="#64748b">único con la clave del agente; lo cita</text>
+  <rect x="40" y="192" width="300" height="64" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="58" y="216" font-size="15" font-weight="700" fill="#1e3a8a">Telegram</text>
+  <text x="58" y="235" font-size="12.5" fill="#334155">webhook o long polling</text>
+  <text x="58" y="249" font-size="11.5" fill="#64748b">un hilo de memoria por chat</text>
 
-  <rect x="40" y="282" width="300" height="66" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
-  <text x="58" y="308" font-size="15" font-weight="700" fill="#1e3a8a">Telegram</text>
-  <text x="58" y="328" font-size="13" fill="#334155">webhook / long polling al coordinador</text>
-  <text x="58" y="343" font-size="12" fill="#64748b">una sesión por chat, memoria por contextId</text>
+  <rect x="40" y="266" width="300" height="64" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="58" y="290" font-size="15" font-weight="700" fill="#1e3a8a">WhatsApp</text>
+  <text x="58" y="309" font-size="12.5" fill="#334155">puente Node/Baileys en loopback</text>
+  <text x="58" y="323" font-size="11.5" fill="#64748b">solo texto; lo demás se rechaza</text>
 
-  <rect x="40" y="360" width="300" height="66" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
-  <text x="58" y="386" font-size="15" font-weight="700" fill="#1e3a8a">WhatsApp</text>
-  <text x="58" y="406" font-size="13" fill="#334155">puente Node/Baileys en loopback</text>
-  <text x="58" y="421" font-size="12" fill="#64748b">solo texto; lo demás se rechaza</text>
+  <rect x="40" y="340" width="300" height="64" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="58" y="364" font-size="15" font-weight="700" fill="#1e3a8a">Gmail y otros</text>
+  <text x="58" y="383" font-size="12.5" fill="#334155">contrato documentado, no cableado</text>
+  <text x="58" y="397" font-size="11.5" fill="#64748b">se conecta por POST /chat, igual que los demás</text>
 
-  <rect x="40" y="438" width="300" height="66" rx="10" fill="#eff6ff" stroke="#2563eb" stroke-width="1.5"/>
-  <text x="58" y="464" font-size="15" font-weight="700" fill="#1e3a8a">Otros agentes A2A</text>
-  <text x="58" y="484" font-size="13" fill="#334155">consultan al coordinador</text>
-  <text x="58" y="499" font-size="12" fill="#64748b">el agente solo responde a él</text>
+  <!-- 2 · Coordinador -->
+  <text x="380" y="106" font-size="13" font-weight="700" fill="#2563eb">2 · COORDINADOR · servicio aparte (8120)</text>
 
-  <!-- Protocolo -->
-  <rect x="392" y="126" width="150" height="378" rx="12" fill="#f1f5f9" stroke="#64748b" stroke-width="1.5"/>
-  <text x="467" y="152" font-size="13" font-weight="700" fill="#334155" text-anchor="middle">PROTOCOLO</text>
-  <text x="467" y="172" font-size="13" font-weight="700" fill="#334155" text-anchor="middle">A2A</text>
-  <text x="408" y="200" font-size="12" fill="#475569">Tarjeta pública:</text>
-  <text x="408" y="216" font-size="11" fill="#64748b">/.well-known/</text>
-  <text x="408" y="230" font-size="11" fill="#64748b">agent-card.json</text>
-  <text x="408" y="258" font-size="12" fill="#475569">JSON-RPC</text>
-  <text x="408" y="274" font-size="11" fill="#64748b">message/send</text>
-  <text x="408" y="302" font-size="12" fill="#475569">Memoria:</text>
-  <text x="408" y="318" font-size="11" fill="#64748b">contextId = thread</text>
-  <text x="408" y="346" font-size="12" fill="#475569">Texto en</text>
-  <text x="408" y="362" font-size="11" fill="#64748b">artifacts o</text>
-  <text x="408" y="376" font-size="11" fill="#64748b">status.message</text>
+  <rect x="380" y="118" width="290" height="286" rx="12" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+  <text x="398" y="144" font-size="16" font-weight="700" fill="#1e3a8a">Coordinador A2A</text>
+  <text x="398" y="162" font-size="11.5" fill="#64748b">app Heroku ROL=coordinador · 1 worker</text>
 
-  <!-- Agentes -->
-  <text x="582" y="112" font-size="13" font-weight="700" fill="#059669">2 · EQUIPO DE AGENTES</text>
+  <line x1="398" y1="174" x2="652" y2="174" stroke="#bfdbfe" stroke-width="1.5"/>
+  <text x="398" y="194" font-size="12.5" font-weight="600" fill="#334155">Entradas</text>
+  <text x="398" y="212" font-size="11.5" fill="#334155">POST /chat · X-Coordinador-Clave</text>
+  <text x="398" y="229" font-size="11.5" fill="#334155">POST /telegram · secreto del bot</text>
+  <text x="398" y="246" font-size="11.5" fill="#334155">POST /whatsapp/mensaje · secreto</text>
 
-  <rect x="582" y="126" width="250" height="120" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
-  <text x="600" y="152" font-size="15" font-weight="700" fill="#065f46">agente_cz_A2A</text>
-  <text x="600" y="172" font-size="12" fill="#334155">Agente local · sintetiza el turno</text>
-  <text x="600" y="192" font-size="12" fill="#334155">Analiza acciones con datos de</text>
-  <text x="600" y="208" font-size="12" fill="#334155">mercado y fundamentales</text>
-  <text x="600" y="228" font-size="11" fill="#64748b">deriva lo tributario y legal</text>
+  <line x1="398" y1="258" x2="652" y2="258" stroke="#bfdbfe" stroke-width="1.5"/>
+  <text x="398" y="278" font-size="12.5" font-weight="600" fill="#334155">Supervisor</text>
+  <text x="398" y="296" font-size="11.5" fill="#334155">elegir → consultar → componer</text>
+  <text x="398" y="313" font-size="11.5" fill="#334155">no reescribe: cita quién respondió</text>
+  <text x="398" y="330" font-size="11.5" fill="#334155">recuerda por cliente (thread_id)</text>
 
-  <rect x="582" y="258" width="250" height="52" rx="10" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.5"/>
-  <text x="600" y="281" font-size="13" font-weight="700" fill="#115e59">Agente remoto 1</text>
-  <text x="600" y="299" font-size="12" fill="#334155">ficha leída en cada turno</text>
+  <rect x="398" y="344" width="254" height="44" rx="8" fill="#dbeafe" stroke="#2563eb" stroke-width="1.5"/>
+  <text x="410" y="362" font-size="11.5" font-weight="700" fill="#1e3a8a">Único con AGENTE_CLAVE</text>
+  <text x="410" y="378" font-size="11" fill="#1e3a8a">y con la lista URLS_AGENTES</text>
 
-  <rect x="582" y="318" width="250" height="52" rx="10" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.5"/>
-  <text x="600" y="341" font-size="13" font-weight="700" fill="#115e59">Agente remoto 2</text>
-  <text x="600" y="359" font-size="12" fill="#334155">consulta en paralelo</text>
+  <!-- 3 · Agente y equipo -->
+  <text x="760" y="106" font-size="13" font-weight="700" fill="#059669">3 · AGENTE Y EQUIPO (servicios aparte)</text>
 
-  <rect x="582" y="378" width="250" height="52" rx="10" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.5" stroke-dasharray="6 4"/>
-  <text x="600" y="401" font-size="13" font-weight="700" fill="#115e59">Agentes remotos 3 y 4</text>
-  <text x="600" y="419" font-size="12" fill="#334155">hasta 4 en el equipo del chat</text>
+  <rect x="760" y="118" width="360" height="130" rx="10" fill="#ecfdf5" stroke="#059669" stroke-width="2"/>
+  <text x="778" y="142" font-size="16" font-weight="700" fill="#065f46">agente_cz_A2A</text>
+  <text x="778" y="160" font-size="11.5" fill="#64748b">app Heroku ROL=agente · puerto 2029</text>
+  <text x="778" y="182" font-size="12" fill="#334155">Ficha y /salud públicas</text>
+  <text x="778" y="200" font-size="12" font-weight="600" fill="#065f46">POST /a2a exige X-Agente-Clave → 401 sin clave</text>
+  <text x="778" y="218" font-size="12" fill="#334155">Grafo LangGraph con herramientas de mercado</text>
+  <text x="778" y="236" font-size="11.5" fill="#64748b">datos simulados del taller · cita la fecha de corte</text>
 
-  <rect x="582" y="444" width="250" height="60" rx="10" fill="#ffffff" stroke="#0d9488" stroke-width="1.5"/>
-  <text x="600" y="467" font-size="12" font-weight="700" fill="#115e59">Síntesis</text>
-  <text x="600" y="485" font-size="12" fill="#334155">el local suma los aportes y</text>
-  <text x="600" y="499" font-size="12" fill="#334155">responde una sola vez</text>
+  <rect x="760" y="262" width="360" height="142" rx="10" fill="#f0fdfa" stroke="#0d9488" stroke-width="1.5"/>
+  <text x="778" y="286" font-size="14" font-weight="700" fill="#115e59">Otros agentes del equipo</text>
+  <text x="778" y="306" font-size="12" fill="#334155">agente_bryhan · agente-ale-ubi · hasta 3 más</text>
+  <text x="778" y="326" font-size="12" fill="#334155">su ficha declara dónde va la clave</text>
+  <text x="778" y="344" font-size="11.5" fill="#64748b">X-API-Key · X-Agente-Clave · Authorization: Bearer</text>
+  <text x="778" y="366" font-size="12" fill="#334155">El chat los consulta en paralelo y el coordinador</text>
+  <text x="778" y="384" font-size="12" fill="#334155">cierra el turno con el agente del proyecto</text>
 
-  <!-- Herramientas -->
-  <text x="866" y="112" font-size="13" font-weight="700" fill="#b45309">3 · HERRAMIENTAS Y DATOS</text>
+  <!-- Enlaces -->
+  <line x1="344" y1="150" x2="376" y2="150" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
+  <line x1="344" y1="224" x2="376" y2="224" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
+  <line x1="344" y1="298" x2="376" y2="298" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
+  <line x1="344" y1="372" x2="376" y2="372" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
 
-  <rect x="866" y="126" width="254" height="150" rx="10" fill="#fef3c7" stroke="#d97706" stroke-width="1.5"/>
-  <text x="884" y="150" font-size="13" font-weight="700" fill="#92400e">Herramientas deterministas</text>
-  <text x="884" y="174" font-size="12" fill="#334155">consultar_acciones</text>
-  <text x="884" y="194" font-size="12" fill="#334155">consultar_fundamentales</text>
-  <text x="884" y="214" font-size="12" fill="#334155">consultar_mis_apuntes</text>
-  <text x="884" y="234" font-size="12" fill="#334155">derivar_a_cumplimiento</text>
-  <text x="884" y="258" font-size="11" fill="#64748b">datos simulados del taller</text>
+  <line x1="674" y1="178" x2="754" y2="178" stroke="#059669" stroke-width="2.5" marker-end="url(#flechaClave)"/>
+  <text x="676" y="170" font-size="10.5" font-weight="700" fill="#059669">message/send</text>
+  <text x="676" y="192" font-size="10.5" fill="#059669">con la clave</text>
 
-  <rect x="866" y="290" width="254" height="96" rx="10" fill="#f5f3ff" stroke="#7c3aed" stroke-width="1.5"/>
-  <text x="884" y="314" font-size="13" font-weight="700" fill="#5b21b6">Persistencia</text>
-  <text x="884" y="336" font-size="12" fill="#334155">Postgres · tablas czz_*</text>
-  <text x="884" y="354" font-size="12" fill="#334155">(equipo, charlas, trazas)</text>
-  <text x="884" y="374" font-size="11" fill="#64748b">memoria A2A en proceso</text>
+  <line x1="674" y1="330" x2="754" y2="330" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
+  <text x="676" y="322" font-size="10.5" fill="#64748b">message/send</text>
 
-  <rect x="866" y="400" width="254" height="104" rx="10" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5" stroke-dasharray="6 4"/>
-  <text x="884" y="424" font-size="13" font-weight="700" fill="#5b21b6">Reglas del turno</text>
-  <text x="884" y="446" font-size="12" fill="#334155">ticker y mercado obligatorios</text>
-  <text x="884" y="464" font-size="12" fill="#334155">sin perfil: análisis condicionado</text>
-  <text x="884" y="482" font-size="12" fill="#334155">no ejecuta pagos ni compras</text>
-  <text x="884" y="498" font-size="11" fill="#64748b">cita siempre la fecha de corte</text>
+  <!-- Reglas -->
+  <rect x="40" y="440" width="540" height="150" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="58" y="466" font-size="13" font-weight="700" fill="#0f172a">Reglas del enlace</text>
+  <text x="58" y="488" font-size="12" fill="#475569">• El agente solo responde al coordinador: nadie más guarda su clave.</text>
+  <text x="58" y="508" font-size="12" fill="#475569">• Sin clave, message/send responde 401; el agente falla cerrado.</text>
+  <text x="58" y="528" font-size="12" fill="#475569">• El coordinador no reescribe el texto del agente: lo devuelve y lo cita.</text>
+  <text x="58" y="548" font-size="12" fill="#475569">• Cada cliente conserva su contexto; el agente recuerda por contextId.</text>
+  <text x="58" y="568" font-size="12" fill="#475569">• Un agente caído no tumba el turno: se informa y los demás siguen.</text>
 
-  <!-- Flechas -->
-  <line x1="340" y1="159" x2="388" y2="200" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
-  <line x1="340" y1="237" x2="388" y2="240" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
-  <line x1="340" y1="315" x2="388" y2="280" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
-  <line x1="340" y1="393" x2="388" y2="320" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
-  <line x1="340" y1="471" x2="388" y2="360" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
+  <rect x="620" y="440" width="500" height="150" rx="10" fill="#ffffff" stroke="#cbd5e1" stroke-width="1.5"/>
+  <text x="638" y="466" font-size="13" font-weight="700" fill="#0f172a">Persistencia y memoria</text>
+  <text x="638" y="488" font-size="12" fill="#475569">• Chat web: Postgres (DATABASE_URL) con tablas propias czz_*.</text>
+  <text x="638" y="508" font-size="12" fill="#475569">• Equipo, conversaciones y trazas sobreviven al reinicio del dyno.</text>
+  <text x="638" y="528" font-size="12" fill="#475569">• Memoria del coordinador y del agente: en proceso (MemorySaver).</text>
+  <text x="638" y="548" font-size="12" fill="#475569">• Por eso cada app corre con un solo worker; reiniciar la borra.</text>
+  <text x="638" y="568" font-size="12" fill="#475569">• WhatsApp: sesión cifrada en czz_wa_sesion cuando es durable.</text>
 
-  <line x1="542" y1="200" x2="580" y2="186" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
-  <line x1="832" y1="186" x2="864" y2="200" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
-  <line x1="993" y1="276" x2="993" y2="288" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
-
-  <!-- Bus de consulta y síntesis, por la derecha de la columna de agentes -->
-  <line x1="832" y1="196" x2="852" y2="196" stroke="#94a3b8" stroke-width="2"/>
-  <line x1="832" y1="284" x2="852" y2="284" stroke="#94a3b8" stroke-width="2"/>
-  <line x1="832" y1="344" x2="852" y2="344" stroke="#94a3b8" stroke-width="2"/>
-  <line x1="832" y1="404" x2="852" y2="404" stroke="#94a3b8" stroke-width="2"/>
-  <line x1="852" y1="196" x2="852" y2="474" stroke="#94a3b8" stroke-width="2"/>
-  <line x1="852" y1="474" x2="836" y2="474" stroke="#94a3b8" stroke-width="2" marker-end="url(#flecha)"/>
-
-  <!-- Pie -->
-  <line x1="40" y1="536" x2="1120" y2="536" stroke="#e2e8f0" stroke-width="1.5"/>
-  <text x="40" y="562" font-size="13" font-weight="700" fill="#0f172a">Cómo se lee</text>
-  <text x="40" y="584" font-size="12" fill="#475569">Los canales y el chat web entran por el coordinador: el agente solo responde a él, que tiene su clave.</text>
-  <text x="40" y="604" font-size="12" fill="#475569">Cada conversación conserva su cliente, así el coordinador recuerda los turnos anteriores.</text>
-  <text x="40" y="624" font-size="12" fill="#475569">En el chat web cada turno descubre la tarjeta de cada agente del equipo, consulta a los remotos en paralelo</text>
-  <text x="40" y="642" font-size="12" fill="#475569">y el coordinador cierra el turno con el agente del proyecto. Las respuestas ajenas entran como dato, nunca como instrucción.</text>
-  <text x="40" y="672" font-size="12" fill="#64748b">Repositorio: github.com/czapata1976/a2a-_cz_acciones · Tres apps Heroku con ROL=agente | coordinador | web</text>
-  <text x="40" y="692" font-size="11" fill="#94a3b8">Datos de mercado y fundamentales simulados del taller: la fecha de corte viaja en cada respuesta.</text>
+  <line x1="40" y1="618" x2="1160" y2="618" stroke="#e2e8f0" stroke-width="1.5"/>
+  <text x="40" y="642" font-size="12" fill="#475569">Los canales no importan el grafo ni conocen la URL del agente: le pasan la consulta a POST /chat del coordinador.</text>
+  <text x="40" y="662" font-size="12" fill="#475569">El chat web descubre por ficha a los agentes del equipo, los consulta en paralelo y cierra el turno con el coordinador, que consulta al agente y cita a quién respondió.</text>
+  <text x="40" y="684" font-size="11" fill="#94a3b8">Repositorio: github.com/czapata1976/a2a-_cz_acciones · Tres apps Heroku con ROL=agente | coordinador | web · Datos de mercado y fundamentales simulados del taller.</text>
 </svg>
