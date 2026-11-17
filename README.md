@@ -268,14 +268,22 @@ texto = "\n".join(partes)
 > Sin `X-Agente-Clave` el endpoint responde **401**. Hay clientes que además exigen
 > `Accept: application/json`; enviarlo siempre no estorba.
 
-### Con Swagger (`/docs`, solo pruebas locales)
+### Con Swagger (`/docs`)
 
-La interfaz interactiva del servidor A2A viene apagada; se publica arrancando el agente con
+La interfaz interactiva viene apagada por defecto. En local se enciende arrancando el agente con
 `AGENTE_DOCS=true` y abriendo <http://127.0.0.1:2029/docs>:
 
 ```powershell
 $env:AGENTE_DOCS = "true"
 .venv\Scripts\python.exe scripts\servidor_agente.py
+```
+
+En Heroku ya está encendida en la app del agente —
+<https://agente-cz-acciones-50f663cbb84c.herokuapp.com/docs> — y se controla con su variable:
+
+```powershell
+heroku config:set AGENTE_DOCS=true  -a agente-cz-acciones   # encender
+heroku config:unset AGENTE_DOCS     -a agente-cz-acciones   # apagar
 ```
 
 En `POST /a2a` → **Try it out**: escribe la clave en la cabecera `X-Agente-Clave` (o usa

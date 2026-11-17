@@ -51,8 +51,8 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 - Python 3.11+ (el servidor de LangGraph lo exige). `py -3.12 -m venv .venv`, activar, `pip install -r requirements.txt`.
 - Claves solo en `.env` (ignorado por git). `.env.example` lista las variables. Modelo por defecto `gemini-3.5-flash-lite`.
 - Levantar el agente: `.venv\Scripts\python.exe scripts\servidor_agente.py` (puerto 2029, exige `AGENTE_CLAVE`).
-  Con `AGENTE_DOCS=true` además publica `/docs` (Swagger) para probar `message/send` a mano; en la nube
-  se deja apagado.
+  Con `AGENTE_DOCS=true` además publica `/docs` (Swagger) para probar `message/send` a mano; en Heroku
+  se enciende con `heroku config:set AGENTE_DOCS=true -a agente-cz-acciones`.
   El coordinador va aparte: `.venv\Scripts\python.exe scripts\servidor_coordinador.py` (8120, exige
   `COORDINADOR_CLAVE` y `URLS_AGENTES`). `langgraph dev` sigue disponible para depurar el grafo con la
   interfaz de LangGraph Studio; ahí el `assistant_id` se obtiene con `POST /assistants/search`.
