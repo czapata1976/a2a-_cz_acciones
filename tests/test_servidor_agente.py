@@ -133,3 +133,29 @@ def test_metodo_no_soportado(cliente: TestClient):
     respuesta = cliente.post("/a2a", json={"jsonrpc": "2.0", "id": "1", "method": "tasks/get"}, headers=CABECERA)
     assert respuesta.status_code == 200
     assert respuesta.json()["error"]["code"] == -32601
+
+
+# --- Swagger (opcional) ---------------------------------------------------
+def test_swagger_apagado_por_defecto(monkeypatch, agente):
+    monkeypatch.setenv("AGENTE_CLAVE", CLAVE)
+    monkeypatch.delenv("AGENTE_DOCS", raising=False)
+    with TestClient(crear_app(agente)) as prueba:
+        assert prueba.get("/docs").status_code == 404
+        # el esquema OpenAPI sigue publicado: lo usan los clientes, no solo Swagger
+        assert prueba.get("/openapi.json").status_code == 200
+
+
+def test_swagger_documenta_un_message_send_enviable(monkeypatch, agente):
+    monkeypatch.setenv("AGENTE_CLAVE", CLAVE)
+    monkeypatch.setenv("AGENTE_DOCS", "true")
+    with TestClient(crear_app(agente)) as prueba:
+        assert prueba.get("/docs").status_code == 200
+        esquema = prueba.get("/openapi.json").json()
+        operacion = esquema["paths"]["/a2a"]["post"]
+        medio = operacion["requestBody"]["content"]["application/json"]
+        assert medio["schema"]["properties"]["method"]["enum"] == ["message/send"]
+        assert [parametro["name"] for parametro in operacion["parameters"]] == ["X-Agente-Clave"]
+        # el ejemplo que muestra Swagger se envía tal cual
+        respuesta = prueba.post("/a2a", json=medio["example"], headers=CABECERA)
+        assert respuesta.status_code == 200
+        assert respuesta.json()["result"]["status"]["state"] == "completed"

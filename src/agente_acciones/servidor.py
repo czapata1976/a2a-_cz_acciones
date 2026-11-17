@@ -36,9 +36,83 @@ NO_LEIBLE = (
     "analizar (por ejemplo: «analiza NVDA en US para un perfil moderado»)."
 )
 
+EJEMPLO_A2A = {
+    "jsonrpc": "2.0",
+    "id": "1",
+    "method": "message/send",
+    "params": {
+        "message": {
+            "role": "user",
+            "messageId": "m1",
+            "contextId": "ctx-prueba",
+            "parts": [{"kind": "text", "text": "Analiza NVDA en US para un perfil moderado a 12 meses."}],
+        }
+    },
+}
+
+# `atender_a2a` recibe el `Request` en crudo (necesita las cabeceras y el JSON sin validar), así que
+# FastAPI no describe el cuerpo: esto lo documenta para que Swagger pueda enviarlo.
+CUERPO_A2A = {
+    "summary": "message/send",
+    "description": "Envía una consulta de texto y devuelve la tarea A2A completada. Reutiliza "
+                   "`contextId` para que la conversación recuerde sus turnos.",
+    "parameters": [{
+        "name": "X-Agente-Clave",
+        "in": "header",
+        "required": False,
+        "description": "Clave del agente. También se acepta `Authorization: Bearer <clave>`.",
+        "schema": {"type": "string"},
+    }],
+    "requestBody": {
+        "required": True,
+        "content": {"application/json": {
+            "schema": {
+                "type": "object",
+                "required": ["jsonrpc", "id", "method", "params"],
+                "properties": {
+                    "jsonrpc": {"type": "string", "example": "2.0"},
+                    "id": {"type": "string", "example": "1"},
+                    "method": {"type": "string", "enum": ["message/send"]},
+                    "params": {
+                        "type": "object",
+                        "required": ["message"],
+                        "properties": {"message": {
+                            "type": "object",
+                            "required": ["role", "messageId", "parts"],
+                            "properties": {
+                                "role": {"type": "string", "enum": ["user", "agent"]},
+                                "messageId": {"type": "string", "example": "m1"},
+                                "contextId": {"type": "string", "example": "ctx-prueba",
+                                              "description": "Hilo de la conversación (memoria del agente)."},
+                                "parts": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "required": ["kind", "text"],
+                                        "properties": {
+                                            "kind": {"type": "string", "enum": ["text"]},
+                                            "text": {"type": "string"},
+                                        },
+                                    },
+                                },
+                            },
+                        }},
+                    },
+                },
+            },
+            "example": EJEMPLO_A2A,
+        }},
+    },
+}
+
 
 def _clave_configurada() -> str:
     return (os.environ.get("AGENTE_CLAVE") or "").strip()
+
+
+def _docs_habilitados() -> bool:
+    """`AGENTE_DOCS=true` publica `/docs` y `/redoc` para probar a mano; apagado por defecto."""
+    return (os.environ.get("AGENTE_DOCS") or "").strip().lower() in {"1", "true", "si", "sí", "yes", "on"}
 
 
 def _url_publica(request: Request) -> str:
@@ -75,7 +149,14 @@ def crear_app(agente=None) -> FastAPI:
 
         agente = crear_agente(MemorySaver())
 
-    app = FastAPI(title=f"A2A {NOMBRE}", version="1.0.0", docs_url=None, redoc_url=None)
+    app = FastAPI(
+        title=f"A2A {NOMBRE}",
+        description="Servidor A2A del agente. `message/send` exige la clave; `/docs` solo se publica "
+                    "con `AGENTE_DOCS=true`.",
+        version="1.0.0",
+        docs_url="/docs" if _docs_habilitados() else None,
+        redoc_url="/redoc" if _docs_habilitados() else None,
+    )
     app.state.agente = agente
 
     @app.middleware("http")
@@ -183,8 +264,8 @@ def crear_app(agente=None) -> FastAPI:
             },
         )
 
-    app.post("/a2a")(atender_a2a)
-    app.post("/a2a/{identificador}")(atender_a2a)
+    app.post("/a2a", openapi_extra=CUERPO_A2A)(atender_a2a)
+    app.post("/a2a/{identificador}", include_in_schema=False)(atender_a2a)
     return app
 
 

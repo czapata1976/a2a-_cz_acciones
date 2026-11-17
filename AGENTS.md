@@ -32,7 +32,7 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 | `scripts/servidor_web.py` · `scripts/clave_web.py` | Levanta el chat en 8110 y genera `WEB_CLAVE_HASH` / `WEB_SECRETO`. |
 | `tests/test_web.py` | Login, tope de cuatro agentes, orquestación y estáticos, sin salir a la red. |
 | `src/agente_acciones/tarjeta.py` | Ficha pública: qué hace, qué **no** hace, skills con etiquetas y ejemplos, y `URL_PUBLICA`. |
-| `src/agente_acciones/servidor.py` | Servidor A2A propio (FastAPI): ficha y `/salud` públicas, `message/send` con `X-Agente-Clave`, `MemorySaver` por `contextId`. |
+| `src/agente_acciones/servidor.py` | Servidor A2A propio (FastAPI): ficha y `/salud` públicas, `message/send` con `X-Agente-Clave`, `MemorySaver` por `contextId`; `/docs` (Swagger) solo con `AGENTE_DOCS=true`. |
 | `coordinador/` | Supervisor A2A y **única puerta al agente**: lee las fichas de `URLS_AGENTES`, elige **un** agente, cita cuál respondió y recuerda por cliente. Es el único que conoce `AGENTE_CLAVE`. |
 | `coordinador/main.py` · `canal.py` | `POST /chat` con `X-Coordinador-Clave` (acepta `agente` para fijar el que responde), `POST /telegram` con el secreto del bot y `/whatsapp/*` con el del puente. |
 | `coordinador/supervisor.py` | Grafo `elegir → consultar → componer` con `MemorySaver`; no altera el texto del agente. |
@@ -51,6 +51,8 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
 - Python 3.11+ (el servidor de LangGraph lo exige). `py -3.12 -m venv .venv`, activar, `pip install -r requirements.txt`.
 - Claves solo en `.env` (ignorado por git). `.env.example` lista las variables. Modelo por defecto `gemini-3.5-flash-lite`.
 - Levantar el agente: `.venv\Scripts\python.exe scripts\servidor_agente.py` (puerto 2029, exige `AGENTE_CLAVE`).
+  Con `AGENTE_DOCS=true` además publica `/docs` (Swagger) para probar `message/send` a mano; en la nube
+  se deja apagado.
   El coordinador va aparte: `.venv\Scripts\python.exe scripts\servidor_coordinador.py` (8120, exige
   `COORDINADOR_CLAVE` y `URLS_AGENTES`). `langgraph dev` sigue disponible para depurar el grafo con la
   interfaz de LangGraph Studio; ahí el `assistant_id` se obtiene con `POST /assistants/search`.
@@ -99,7 +101,8 @@ su propio entorno, su propio `.env` y su propio grafo (`agente_cz_A2A`). Su cons
     local recibe en cada turno la ficha del equipo (`<equipo_a2a>`) para reconocer a cada colega. Cada
     remoto guarda su clave junto a su URL (en la fila del equipo, fuera de la API) y se envía en la
     cabecera que declare su ficha (`securitySchemes`: `X-API-Key`, `X-Agente-Clave` o
-    `Authorization: Bearer`), más `A2A-Version` cuando la tarjeta publica `supportedInterfaces`. Esa
+    `Authorization: Bearer`, y el heredado `authentication` con `header` o con `schemes: ["bearer"]`),
+    más `A2A-Version` cuando la tarjeta publica `supportedInterfaces`. Esa
     lectura y el reintento de versión viven en `canales/a2a.py` y los usan el chat y el coordinador. Si el
     agente rechaza esa versión (su ficha anuncia 1.0 y su manejador atiende 0.3), se reintenta la misma
     tarea con `0.3` y, por último, sin `A2A-Version`: la clave y la versión se negocian en

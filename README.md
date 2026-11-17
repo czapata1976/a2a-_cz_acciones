@@ -268,6 +268,22 @@ texto = "\n".join(partes)
 > Sin `X-Agente-Clave` el endpoint responde **401**. Hay clientes que además exigen
 > `Accept: application/json`; enviarlo siempre no estorba.
 
+### Con Swagger (`/docs`, solo pruebas locales)
+
+La interfaz interactiva del servidor A2A viene apagada; se publica arrancando el agente con
+`AGENTE_DOCS=true` y abriendo <http://127.0.0.1:2029/docs>:
+
+```powershell
+$env:AGENTE_DOCS = "true"
+.venv\Scripts\python.exe scripts\servidor_agente.py
+```
+
+En `POST /a2a` → **Try it out**: escribe la clave en la cabecera `X-Agente-Clave` (o usa
+`Authorization: Bearer`) y envía el cuerpo de ejemplo, cambiando el texto si quieres. El `contextId`
+es la memoria: repite el mismo valor para seguir la conversación y cámbialo para empezar otra. El
+esquema `/openapi.json` se publica siempre, con o sin `AGENTE_DOCS`, y `message/send` sigue exigiendo
+la clave: Swagger no la salta.
+
 ### Con la colección Bruno
 
 La carpeta `bruno/produccion/` tiene las 16 pruebas de la entrega con sus aserciones (ficha, salud,
